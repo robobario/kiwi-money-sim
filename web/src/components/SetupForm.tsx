@@ -1,214 +1,106 @@
 import { useState } from 'react';
-import type { FormValues, RecurringCostEntry, InvestmentEntry } from '../types/form';
-import { DEFAULT_FORM_VALUES } from '../types/form';
-import type { Frequency } from '../engine/events';
+import type { GlobalConfig } from '../types/form';
+import type { Gesture } from '../engine/gestures';
+import { AddEventForm } from './AddEventPanel';
 
-interface SetupFormProps {
-  onSubmit: (values: FormValues) => void;
-  initialValues?: FormValues;
+interface SetupTabProps {
+  config: GlobalConfig;
+  onConfigChange: (config: GlobalConfig) => void;
+  timeline: Gesture[];
+  onAddEvent: (gesture: Gesture) => void;
+  onRemoveEvent: (originalIndex: number) => void;
+  startDay: Date;
 }
 
-export function SetupForm({ onSubmit, initialValues }: SetupFormProps) {
-  const [values, setValues] = useState<FormValues>(initialValues ?? DEFAULT_FORM_VALUES);
+function formatDate(epochMs: number): string {
+  return new Date(epochMs).toISOString().slice(0, 10);
+}
 
-  const update = <K extends keyof FormValues>(key: K, value: FormValues[K]) => {
-    setValues(prev => ({ ...prev, [key]: value }));
+function formatFreq(freq: string): string {
+  switch (freq) {
+    case 'daily': return '/day';
+    case 'weekly': return '/week';
+    case 'first_of_month': return '/month';
+    default: return freq;
+  }
+}
+
+function gestureLabel(g: Gesture): string {
+  switch (g.kind) {
+    case 'create_income':
+      return `$${g.amount.toLocaleString()}${formatFreq(g.frequency)} ${g.name} (income${g.inflationLinked ? ', inflation-linked' : ''})`;
+    case 'create_repeat_cost':
+      return `$${g.amount.toLocaleString()}${formatFreq(g.frequency)} ${g.name} (cost${g.inflationLinked ? ', inflation-linked' : ''})`;
+    case 'create_periodic_investment':
+      return `$${g.periodAmount.toLocaleString()}${formatFreq(g.frequency)} → ${g.name} at ${g.annualGrowthPercent}% p.a.`;
+    case 'create_existing_mortgage':
+      return `Mortgage: $${g.principal.toLocaleString()} at ${g.annualRatePercent}% / ${g.termYears}yr, house $${g.assetValue.toLocaleString()}`;
+    default:
+      return g.kind;
+  }
+}
+
+function formatMonthYear(date: Date): string {
+  return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+}
+
+export function SetupTab({ config, onConfigChange, timeline, onAddEvent, onRemoveEvent, startDay }: SetupTabProps) {
+  const [showAddForm, setShowAddForm] = useState(false);
+
+  const update = <K extends keyof GlobalConfig>(key: K, value: GlobalConfig[K]) => {
+    onConfigChange({ ...config, [key]: value });
   };
 
-  const updateCost = (index: number, field: keyof RecurringCostEntry, value: string | number | boolean) => {
-    const updated = values.recurringCosts.map((c, i) =>
-      i === index ? { ...c, [field]: value } : c
-    );
-    update('recurringCosts', updated);
-  };
+  const sortedEntries = timeline
+    .map((gesture, originalIndex) => ({ gesture, originalIndex }))
+    .sort((a, b) => a.gesture.day - b.gesture.day);
 
-  const addCost = () => {
-    update('recurringCosts', [...values.recurringCosts, { name: '', amount: 0, frequency: 'monthly' as Frequency, inflationLinked: false }]);
-  };
+  const endDate = new Date(startDay);
+  endDate.setUTCFullYear(endDate.getUTCFullYear() + config.simulationYears);
 
-  const removeCost = (index: number) => {
-    update('recurringCosts', values.recurringCosts.filter((_, i) => i !== index));
+  const handleAdd = (gesture: Gesture) => {
+    onAddEvent(gesture);
+    setShowAddForm(false);
   };
-
-  const updateInvestment = (index: number, field: keyof InvestmentEntry, value: string | number) => {
-    const updated = values.investments.map((inv, i) =>
-      i === index ? { ...inv, [field]: value } : inv
-    );
-    update('investments', updated);
-  };
-
-  const addInvestment = () => {
-    update('investments', [...values.investments, { name: '', periodAmount: 500, frequency: 'first_of_month' as Frequency, annualGrowthPercent: 5 }]);
-  };
-
-  const removeInvestment = (index: number) => {
-    update('investments', values.investments.filter((_, i) => i !== index));
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSubmit(values);
-  };
-
-  const inflationActive = values.inflationRatePercent > 0;
 
   return (
-    <form onSubmit={handleSubmit} className="setup-form">
-      <h2>Setup</h2>
-
-      <div className="form-section">
+    <div className="setup-tab">
+      <div className="global-config">
         <label>
           Starting Cash ($)
-          <input type="number" value={values.startingCash} onChange={e => update('startingCash', Number(e.target.value))} />
+          <input type="number" value={config.startingCash} onChange={e => update('startingCash', Number(e.target.value))} />
         </label>
-
         <label>
-          Monthly Salary After Tax ($)
-          <input type="number" value={values.monthlySalary} onChange={e => update('monthlySalary', Number(e.target.value))} />
+          Duration (years)
+          <input type="number" min="1" value={config.simulationYears} onChange={e => update('simulationYears', Number(e.target.value))} />
+        </label>
+        <label>
+          Annual Inflation (%)
+          <input type="number" step="0.1" min="0" value={config.inflationRatePercent} onChange={e => update('inflationRatePercent', Number(e.target.value))} />
         </label>
       </div>
 
-      <div className="form-section">
-        <h3>Recurring Costs</h3>
-        {values.recurringCosts.map((cost, i) => (
-          <div key={i} className="cost-row">
-            <input
-              type="text"
-              placeholder="Name"
-              value={cost.name}
-              onChange={e => updateCost(i, 'name', e.target.value)}
-            />
-            <input
-              type="number"
-              placeholder="Amount"
-              value={cost.amount}
-              onChange={e => updateCost(i, 'amount', Number(e.target.value))}
-            />
-            <select
-              value={cost.frequency}
-              onChange={e => updateCost(i, 'frequency', e.target.value)}
-            >
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
-              <option value="first_of_month">Monthly</option>
-            </select>
-            {inflationActive && (
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={cost.inflationLinked}
-                  onChange={e => updateCost(i, 'inflationLinked', e.target.checked)}
-                />
-                Inflation-linked
-              </label>
-            )}
-            <button type="button" onClick={() => removeCost(i)} className="btn-remove">x</button>
+      <div className="timeline">
+        <div className="timeline-marker">Start — {formatMonthYear(startDay)}</div>
+
+        {sortedEntries.map(({ gesture, originalIndex }) => (
+          <div key={originalIndex} className="timeline-entry">
+            <span className="entry-date">{formatDate(gesture.day)}</span>
+            <span className="entry-label">{gestureLabel(gesture)}</span>
+            <button type="button" className="btn-remove" onClick={() => onRemoveEvent(originalIndex)}>×</button>
           </div>
         ))}
-        <button type="button" onClick={addCost} className="btn-secondary">+ Add Cost</button>
-      </div>
 
-      <div className="form-section">
-        <h3>Investments</h3>
-        {values.investments.map((inv, i) => (
-          <div key={i} className="cost-row">
-            <input
-              type="text"
-              placeholder="Name"
-              value={inv.name}
-              onChange={e => updateInvestment(i, 'name', e.target.value)}
-            />
-            <input
-              type="number"
-              placeholder="Amount per period"
-              value={inv.periodAmount}
-              onChange={e => updateInvestment(i, 'periodAmount', Number(e.target.value))}
-            />
-            <select
-              value={inv.frequency}
-              onChange={e => updateInvestment(i, 'frequency', e.target.value)}
-            >
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
-              <option value="first_of_month">Monthly</option>
-            </select>
-            <input
-              type="number"
-              placeholder="Growth % p.a."
-              step="0.1"
-              value={inv.annualGrowthPercent}
-              onChange={e => updateInvestment(i, 'annualGrowthPercent', Number(e.target.value))}
-            />
-            <button type="button" onClick={() => removeInvestment(i)} className="btn-remove">x</button>
-          </div>
-        ))}
-        <button type="button" onClick={addInvestment} className="btn-secondary">+ Add Investment</button>
-      </div>
-
-      <div className="form-section">
-        <h3>Inflation</h3>
-        <label>
-          Annual Inflation Rate (%)
-          <input
-            type="number"
-            step="0.1"
-            min="0"
-            value={values.inflationRatePercent}
-            onChange={e => update('inflationRatePercent', Number(e.target.value))}
-          />
-        </label>
-        {inflationActive && (
-          <label className="checkbox-label">
-            <input
-              type="checkbox"
-              checked={values.salaryInflationLinked}
-              onChange={e => update('salaryInflationLinked', e.target.checked)}
-            />
-            Salary grows with inflation
-          </label>
+        {showAddForm ? (
+          <AddEventForm onAdd={handleAdd} startDay={startDay} onCancel={() => setShowAddForm(false)} />
+        ) : (
+          <button type="button" className="btn-secondary timeline-add-btn" onClick={() => setShowAddForm(true)}>
+            + Add Event
+          </button>
         )}
+
+        <div className="timeline-marker">End — {formatMonthYear(endDate)}</div>
       </div>
-
-      <div className="form-section">
-        <label className="checkbox-label">
-          <input type="checkbox" checked={values.hasMortgage} onChange={e => update('hasMortgage', e.target.checked)} />
-          I have a mortgage
-        </label>
-
-        {values.hasMortgage && (
-          <div className="mortgage-fields">
-            <label>
-              Principal Remaining ($)
-              <input type="number" value={values.mortgagePrincipal} onChange={e => update('mortgagePrincipal', Number(e.target.value))} />
-            </label>
-            <label>
-              House Value ($)
-              <input type="number" value={values.houseValue} onChange={e => update('houseValue', Number(e.target.value))} />
-            </label>
-            <label>
-              House Price Growth (% p.a.)
-              <input type="number" step="0.1" min="0" value={values.housePriceGrowthPercent} onChange={e => update('housePriceGrowthPercent', Number(e.target.value))} />
-            </label>
-            <label>
-              Interest Rate (% p.a.)
-              <input type="number" step="0.1" value={values.interestRate} onChange={e => update('interestRate', Number(e.target.value))} />
-            </label>
-            <label>
-              Remaining Term (years)
-              <input type="number" value={values.termYears} onChange={e => update('termYears', Number(e.target.value))} />
-            </label>
-          </div>
-        )}
-      </div>
-
-      <div className="form-section">
-        <label>
-          Simulation Duration (years)
-          <input type="number" value={values.simulationYears} onChange={e => update('simulationYears', Number(e.target.value))} />
-        </label>
-      </div>
-
-      <button type="submit" className="btn-primary">Run Simulation</button>
-    </form>
+    </div>
   );
 }

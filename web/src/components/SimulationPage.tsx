@@ -1,31 +1,16 @@
 import type { SimulationResult } from '../engine/simulation';
-import type { Gesture } from '../engine/gestures';
 import { ChartView } from './ChartView';
-import { AddEventPanel } from './AddEventPanel';
 
 interface SimulationPageProps {
   result: SimulationResult;
   mortgageName: string | undefined;
-  addedEvents: Gesture[];
-  onAddEvent: (gesture: Gesture) => void;
-  onRemoveEvent: (index: number) => void;
-  onRerun: () => void;
-  onReset: () => void;
 }
 
 function formatDollar(value: number): string {
   return '$' + Math.round(value).toLocaleString();
 }
 
-export function SimulationPage({
-  result,
-  mortgageName,
-  addedEvents,
-  onAddEvent,
-  onRemoveEvent,
-  onRerun,
-  onReset,
-}: SimulationPageProps) {
+export function SimulationPage({ result, mortgageName }: SimulationPageProps) {
   const finalBalances = result.finalWorld.accounts;
   const finalInvestments = result.finalWorld.investments;
   const externalAccountNames = finalBalances.filter(a => a.external).map(a => a.name);
@@ -41,11 +26,6 @@ export function SimulationPage({
 
   return (
     <div className="simulation-page">
-      <div className="page-header">
-        <h2>Simulation Results</h2>
-        <button type="button" onClick={onReset} className="btn-secondary">Back to Setup</button>
-      </div>
-
       <div className="summary-stats">
         <div className="stat">
           <span className="stat-label">Final Cash</span>
@@ -81,13 +61,6 @@ export function SimulationPage({
       </div>
 
       <ChartView snapshots={result.snapshots} mortgageName={mortgageName} externalAccountNames={externalAccountNames} />
-
-      <AddEventPanel
-        addedEvents={addedEvents}
-        onAddEvent={onAddEvent}
-        onRemoveEvent={onRemoveEvent}
-        onRerun={onRerun}
-      />
     </div>
   );
 }

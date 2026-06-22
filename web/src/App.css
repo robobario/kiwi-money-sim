@@ -7,86 +7,170 @@
 }
 
 h1 {
-  margin-bottom: 1.5rem;
-}
-
-h2 {
   margin-bottom: 1rem;
 }
 
-h3 {
-  margin-bottom: 0.5rem;
+/* ── Tabs ── */
+
+.tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid #e5e7eb;
+  margin-bottom: 2rem;
 }
 
-.form-section {
-  margin-bottom: 1.5rem;
-}
-
-.form-section label {
-  display: block;
-  margin-bottom: 0.75rem;
-}
-
-.form-section input[type="number"],
-.form-section input[type="text"] {
-  display: block;
-  margin-top: 0.25rem;
-  padding: 0.4rem 0.6rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 0.95rem;
-  width: 220px;
-}
-
-.form-section select {
-  padding: 0.4rem 0.6rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 0.95rem;
-}
-
-.checkbox-label {
-  display: flex !important;
-  align-items: center;
-  gap: 0.5rem;
+.tab-btn {
+  padding: 0.5rem 1.5rem;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  font-size: 1rem;
+  color: #6b7280;
   cursor: pointer;
 }
 
-.checkbox-label input[type="checkbox"] {
-  width: auto;
-  margin: 0;
+.tab-btn:hover {
+  color: #1a1a1a;
 }
 
-.mortgage-fields {
-  margin-top: 0.75rem;
-  padding-left: 1.5rem;
-  border-left: 3px solid #e5e7eb;
+.tab-btn.active {
+  color: #2563eb;
+  border-bottom-color: #2563eb;
+  font-weight: 600;
 }
 
-.cost-row {
+/* ── Global config ── */
+
+.global-config {
+  display: flex;
+  gap: 2rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+.global-config label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+  color: #374151;
+}
+
+.global-config input {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  width: 140px;
+}
+
+/* ── Timeline ── */
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.timeline-marker {
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #6b7280;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 0.5rem 0;
+  border-top: 1px solid #d1d5db;
+  border-bottom: 1px solid #d1d5db;
+  background: #f9fafb;
+  margin: 0.5rem 0;
+}
+
+.timeline-entry {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 0.75rem;
+  border-left: 3px solid #3b82f6;
+  margin-left: 0.5rem;
+  background: #fff;
+}
+
+.timeline-entry:not(:last-child) {
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.entry-date {
+  font-size: 0.8rem;
+  color: #6b7280;
+  white-space: nowrap;
+  min-width: 80px;
+}
+
+.entry-label {
+  flex: 1;
+  font-size: 0.95rem;
+}
+
+.timeline-add-btn {
+  margin: 0.75rem 0 0.75rem 0.5rem;
+  align-self: flex-start;
+}
+
+/* ── Add event form ── */
+
+.add-event-form {
+  margin: 0.5rem 0 0.5rem 0.5rem;
+  padding: 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #f9fafb;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-row {
   display: flex;
   gap: 0.5rem;
   align-items: center;
-  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
 }
 
-.cost-row input[type="text"] {
+.form-row input[type="text"],
+.form-row input[type="number"],
+.form-row input[type="date"] {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.form-row input[type="text"] {
   width: 140px;
-  margin: 0;
 }
 
-.cost-row input[type="number"] {
-  width: 100px;
-  margin: 0;
+.form-row input[type="number"] {
+  width: 110px;
 }
+
+.form-row select {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+/* ── Buttons ── */
 
 .btn-primary {
-  padding: 0.6rem 1.5rem;
+  padding: 0.5rem 1.25rem;
   background: #2563eb;
   color: white;
   border: none;
   border-radius: 6px;
-  font-size: 1rem;
+  font-size: 0.95rem;
   cursor: pointer;
 }
 
@@ -123,17 +207,18 @@ h3 {
   border-color: #ef4444;
 }
 
-.page-header {
+/* ── Results ── */
+
+.simulation-page {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.5rem;
+  flex-direction: column;
+  gap: 1.5rem;
 }
 
 .summary-stats {
   display: flex;
   gap: 2rem;
-  margin-bottom: 2rem;
+  flex-wrap: wrap;
 }
 
 .stat {
@@ -157,63 +242,22 @@ h3 {
   color: #6b7280;
 }
 
-.add-event-panel {
+.empty-results {
+  color: #6b7280;
   margin-top: 2rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid #e5e7eb;
 }
 
-.event-form {
+/* ── Misc ── */
+
+.checkbox-label {
   display: flex;
+  align-items: center;
   gap: 0.5rem;
-  align-items: center;
-  flex-wrap: wrap;
-  margin-bottom: 1rem;
+  cursor: pointer;
+  font-size: 0.9rem;
 }
 
-.event-form input[type="text"],
-.event-form input[type="number"] {
-  padding: 0.4rem 0.6rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 0.95rem;
-}
-
-.event-form input[type="text"] {
-  width: 140px;
-}
-
-.event-form input[type="number"] {
-  width: 100px;
-}
-
-.event-form input[type="date"] {
-  padding: 0.4rem 0.6rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 0.95rem;
-}
-
-.event-form select {
-  padding: 0.4rem 0.6rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 0.95rem;
-}
-
-.event-list {
-  margin-bottom: 1rem;
-}
-
-.event-list ul {
-  list-style: none;
-  padding: 0;
-}
-
-.event-list li {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.4rem 0;
-  border-bottom: 1px solid #f3f4f6;
+.checkbox-label input[type="checkbox"] {
+  width: auto;
+  margin: 0;
 }
