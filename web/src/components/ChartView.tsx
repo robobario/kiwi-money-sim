@@ -10,7 +10,7 @@ import {
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import type { Snapshot } from '../engine/simulation';
-import { WORLD_ACCOUNT } from '../engine/simulation';
+import { WORLD_ACCOUNT, INCOME_ACCOUNT } from '../engine/simulation';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
@@ -32,6 +32,7 @@ function formatDollar(value: number): string {
 
 const INVESTMENT_COLORS = ['#8b5cf6', '#14b8a6', '#eab308', '#ec4899', '#06b6d4'];
 const COST_COLORS = ['#f87171', '#fb923c', '#fbbf24', '#a3e635', '#34d399'];
+const INCOME_COLOR = '#60a5fa';
 
 export function ChartView({ snapshots, mortgageName, externalAccountNames = [] }: ChartViewProps) {
   const labels = snapshots.map(s => formatDate(s.day));
@@ -40,7 +41,8 @@ export function ChartView({ snapshots, mortgageName, externalAccountNames = [] }
     ? Object.keys(snapshots[0].investmentValues ?? {})
     : [];
 
-  const costAccountNames = externalAccountNames.filter(n => n !== WORLD_ACCOUNT);
+  const costAccountNames = externalAccountNames.filter(n => n !== WORLD_ACCOUNT && n !== INCOME_ACCOUNT);
+  const hasIncomeAccount = externalAccountNames.includes(INCOME_ACCOUNT);
 
   const externalSet = new Set(externalAccountNames);
 
@@ -121,6 +123,18 @@ export function ChartView({ snapshots, mortgageName, externalAccountNames = [] }
       tension: 0,
     });
   });
+
+  if (hasIncomeAccount) {
+    datasets.push({
+      label: 'Total Income',
+      data: snapshots.map(s => -(s.balances[INCOME_ACCOUNT] ?? 0)),
+      borderColor: INCOME_COLOR,
+      backgroundColor: INCOME_COLOR + '20',
+      borderDash: [4, 4],
+      pointRadius: 0,
+      tension: 0,
+    });
+  }
 
   return (
     <div style={{ width: '100%', maxWidth: 900, margin: '0 auto' }}>

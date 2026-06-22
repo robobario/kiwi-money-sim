@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { FormValues } from './types/form';
 import type { Gesture } from './engine/gestures';
 import type { SimulationResult } from './engine/simulation';
-import { runSimulation, WORLD_ACCOUNT, CASH_ACCOUNT } from './engine/simulation';
+import { runSimulation, WORLD_ACCOUNT, CASH_ACCOUNT, INCOME_ACCOUNT } from './engine/simulation';
 import { SetupForm } from './components/SetupForm';
 import { SimulationPage } from './components/SimulationPage';
 import './App.css';
@@ -11,10 +11,11 @@ function formToGestures(values: FormValues, startDay: Date): Gesture[] {
   const day = truncateToDay(startDay);
   const gestures: Gesture[] = [
     { kind: 'initialize_account', day, accountName: WORLD_ACCOUNT, balance: 0, external: true },
+    { kind: 'initialize_account', day, accountName: INCOME_ACCOUNT, balance: 0, external: true },
     { kind: 'initialize_account', day, accountName: CASH_ACCOUNT, balance: values.startingCash },
     {
       kind: 'create_income', day, name: 'salary', frequency: 'first_of_month',
-      amount: values.monthlySalary, toAccount: CASH_ACCOUNT, fromAccount: WORLD_ACCOUNT,
+      amount: values.monthlySalary, toAccount: CASH_ACCOUNT, fromAccount: INCOME_ACCOUNT,
       inflationLinked: values.salaryInflationLinked,
     },
   ];

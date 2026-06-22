@@ -5,6 +5,7 @@ import { gestureEvents } from './gestures';
 
 export const WORLD_ACCOUNT = 'world';
 export const CASH_ACCOUNT = 'cash';
+export const INCOME_ACCOUNT = 'income';
 
 export interface Snapshot {
   readonly day: number;

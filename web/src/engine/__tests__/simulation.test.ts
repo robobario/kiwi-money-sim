@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { runSimulation, WORLD_ACCOUNT, CASH_ACCOUNT } from '../simulation';
+import { runSimulation, WORLD_ACCOUNT, CASH_ACCOUNT, INCOME_ACCOUNT } from '../simulation';
 import type { Gesture } from '../gestures';
 
 const JAN_1_2024 = new Date(Date.UTC(2024, 0, 1));
@@ -7,7 +7,8 @@ const JAN_1_2024 = new Date(Date.UTC(2024, 0, 1));
 function basicGestures(startDay: Date): Gesture[] {
   const day = startDay.getTime();
   return [
-    { kind: 'initialize_account', day, accountName: WORLD_ACCOUNT, balance: 0 },
+    { kind: 'initialize_account', day, accountName: WORLD_ACCOUNT, balance: 0, external: true },
+    { kind: 'initialize_account', day, accountName: INCOME_ACCOUNT, balance: 0, external: true },
     { kind: 'initialize_account', day, accountName: CASH_ACCOUNT, balance: 0 },
   ];
 }
@@ -37,7 +38,7 @@ describe('runSimulation', () => {
       ...basicGestures(JAN_1_2024),
       {
         kind: 'create_income', day, name: 'salary', frequency: 'first_of_month',
-        amount: 5000, toAccount: CASH_ACCOUNT, fromAccount: WORLD_ACCOUNT,
+        amount: 5000, toAccount: CASH_ACCOUNT, fromAccount: INCOME_ACCOUNT,
       },
     ];
     const result = runSimulation(JAN_1_2024, gestures, 1);
@@ -54,7 +55,7 @@ describe('runSimulation', () => {
       ...basicGestures(JAN_1_2024),
       {
         kind: 'create_income', day, name: 'salary', frequency: 'first_of_month',
-        amount: 5000, toAccount: CASH_ACCOUNT, fromAccount: WORLD_ACCOUNT,
+        amount: 5000, toAccount: CASH_ACCOUNT, fromAccount: INCOME_ACCOUNT,
       },
       {
         kind: 'create_repeat_cost', day, name: 'rent', frequency: 'first_of_month',
@@ -75,7 +76,7 @@ describe('runSimulation', () => {
       ...basicGestures(JAN_1_2024),
       {
         kind: 'create_income', day: futureDay, name: 'future-salary', frequency: 'first_of_month',
-        amount: 10000, toAccount: CASH_ACCOUNT, fromAccount: WORLD_ACCOUNT,
+        amount: 10000, toAccount: CASH_ACCOUNT, fromAccount: INCOME_ACCOUNT,
       },
     ];
     // Run for 6 months (Jan-Jun) — gesture shouldn't fire yet
@@ -95,10 +96,11 @@ describe('runSimulation', () => {
       const day = JAN_1_2024.getTime();
       const gestures: Gesture[] = [
         { kind: 'initialize_account', day, accountName: WORLD_ACCOUNT, balance: 0 },
+        { kind: 'initialize_account', day, accountName: INCOME_ACCOUNT, balance: 0, external: true },
         { kind: 'initialize_account', day, accountName: CASH_ACCOUNT, balance: 0 },
         {
           kind: 'create_income', day, name: 'salary', frequency: 'first_of_month',
-          amount: 17000, toAccount: CASH_ACCOUNT, fromAccount: WORLD_ACCOUNT,
+          amount: 17000, toAccount: CASH_ACCOUNT, fromAccount: INCOME_ACCOUNT,
         },
         {
           kind: 'create_repeat_cost', day, name: 'living-costs', frequency: 'weekly',
@@ -158,10 +160,11 @@ describe('runSimulation', () => {
       const day = JAN_1_2024.getTime();
       const gestures: Gesture[] = [
         { kind: 'initialize_account', day, accountName: WORLD_ACCOUNT, balance: 0 },
+        { kind: 'initialize_account', day, accountName: INCOME_ACCOUNT, balance: 0, external: true },
         { kind: 'initialize_account', day, accountName: CASH_ACCOUNT, balance: 0 },
         {
           kind: 'create_income', day, name: 'salary', frequency: 'first_of_month',
-          amount: 17000, toAccount: CASH_ACCOUNT, fromAccount: WORLD_ACCOUNT,
+          amount: 17000, toAccount: CASH_ACCOUNT, fromAccount: INCOME_ACCOUNT,
         },
         {
           kind: 'create_existing_mortgage', day, name: 'home',
@@ -211,11 +214,12 @@ describe('runSimulation', () => {
       const day = JAN_1_2024.getTime();
       const gestures: Gesture[] = [
         { kind: 'initialize_account', day, accountName: WORLD_ACCOUNT, balance: 0 },
+        { kind: 'initialize_account', day, accountName: INCOME_ACCOUNT, balance: 0, external: true },
         { kind: 'initialize_account', day, accountName: CASH_ACCOUNT, balance: 0 },
         { kind: 'create_inflation', day, annualRatePercent: 3 },
         {
           kind: 'create_income', day, name: 'salary', frequency: 'first_of_month',
-          amount: 5000, toAccount: CASH_ACCOUNT, fromAccount: WORLD_ACCOUNT,
+          amount: 5000, toAccount: CASH_ACCOUNT, fromAccount: INCOME_ACCOUNT,
           inflationLinked: true,
         },
         {

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Gesture } from '../engine/gestures';
 import type { Frequency } from '../engine/events';
-import { CASH_ACCOUNT, WORLD_ACCOUNT } from '../engine/simulation';
+import { CASH_ACCOUNT, INCOME_ACCOUNT } from '../engine/simulation';
 
 interface AddEventPanelProps {
   addedEvents: Gesture[];
@@ -56,7 +56,7 @@ export function AddEventPanel({ addedEvents, onAddEvent, onRemoveEvent, onRerun 
         frequency,
         amount,
         toAccount: CASH_ACCOUNT,
-        fromAccount: WORLD_ACCOUNT,
+        fromAccount: INCOME_ACCOUNT,
         inflationLinked,
       });
     } else if (eventType === 'cost') {
