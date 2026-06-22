@@ -2,7 +2,7 @@ import type { Account } from './account';
 import type { EventGenerator } from './generators';
 import type { Investment, World } from './world';
 
-export type Frequency = 'daily' | 'weekly' | 'first_of_month';
+export type Frequency = 'daily' | 'weekly' | 'first_of_month' | 'first_of_year';
 
 export interface TransferEvent {
   readonly kind: 'transfer';

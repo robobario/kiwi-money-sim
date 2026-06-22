@@ -21,6 +21,7 @@ function formatFreq(freq: string): string {
     case 'daily': return '/day';
     case 'weekly': return '/week';
     case 'first_of_month': return '/month';
+    case 'first_of_year': return '/year';
     default: return freq;
   }
 }

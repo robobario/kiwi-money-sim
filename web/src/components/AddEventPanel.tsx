@@ -37,6 +37,7 @@ function FrequencySelect({ value, onChange }: { value: Frequency; onChange: (v: 
       <option value="daily">Daily</option>
       <option value="weekly">Weekly</option>
       <option value="first_of_month">Monthly</option>
+      <option value="first_of_year">Yearly</option>
     </select>
   );
 }

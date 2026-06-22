@@ -7,5 +7,5 @@ export interface GlobalConfig {
 export const DEFAULT_CONFIG: GlobalConfig = {
   startingCash: 0,
   simulationYears: 30,
-  inflationRatePercent: 0,
+  inflationRatePercent: 2.6,
 };

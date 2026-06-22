@@ -112,6 +112,7 @@ function paymentsPerYearFor(frequency: Frequency): number {
     case 'daily': return 365;
     case 'weekly': return 52;
     case 'first_of_month': return 12;
+    case 'first_of_year': return 1;
   }
 }
 
@@ -126,5 +127,7 @@ function shouldFire(frequency: Frequency, currentDay: number, startDay: number):
     }
     case 'first_of_month':
       return current.getUTCDate() === 1;
+    case 'first_of_year':
+      return current.getUTCDate() === 1 && current.getUTCMonth() === 0;
   }
 }
