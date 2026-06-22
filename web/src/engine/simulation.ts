@@ -9,6 +9,7 @@ export const CASH_ACCOUNT = 'cash';
 export interface Snapshot {
   readonly day: number;
   readonly balances: Record<string, number>;
+  readonly investmentValues: Record<string, number>;
 }
 
 export interface SimulationResult {
@@ -62,5 +63,9 @@ function captureSnapshot(world: World): Snapshot {
   for (const account of world.accounts) {
     balances[account.name] = account.balance;
   }
-  return { day: world.currentDay, balances };
+  const investmentValues: Record<string, number> = {};
+  for (const investment of world.investments) {
+    investmentValues[investment.name] = investment.unitsHeld * investment.indexPrice;
+  }
+  return { day: world.currentDay, balances, investmentValues };
 }

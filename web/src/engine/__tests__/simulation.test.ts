@@ -179,4 +179,62 @@ describe('runSimulation', () => {
       expect(lastMortgage).toBeGreaterThan(firstMortgage);
     });
   });
+
+  describe('investment scenario', () => {
+    it('investment value grows over time with appreciation', () => {
+      const day = JAN_1_2024.getTime();
+      const gestures: Gesture[] = [
+        { kind: 'initialize_account', day, accountName: WORLD_ACCOUNT, balance: 0 },
+        { kind: 'initialize_account', day, accountName: CASH_ACCOUNT, balance: 1_000_000 },
+        {
+          kind: 'create_periodic_investment', day, name: 'fund',
+          periodAmount: 500, frequency: 'first_of_month',
+          annualGrowthPercent: 5, fromAccount: CASH_ACCOUNT,
+        },
+      ];
+
+      const result = runSimulation(JAN_1_2024, gestures, 10);
+      const fund = result.finalWorld.investments.find(i => i.name === 'fund')!;
+
+      expect(fund).toBeDefined();
+      expect(fund.unitsHeld).toBeGreaterThan(0);
+      // After 10 years of $500/month, total invested = $60,000. With 5% growth, value should exceed that.
+      expect(fund.unitsHeld * fund.indexPrice).toBeGreaterThan(60_000);
+    });
+
+    it('investment value is included in snapshots', () => {
+      const day = JAN_1_2024.getTime();
+      const gestures: Gesture[] = [
+        { kind: 'initialize_account', day, accountName: WORLD_ACCOUNT, balance: 0 },
+        { kind: 'initialize_account', day, accountName: CASH_ACCOUNT, balance: 1_000_000 },
+        {
+          kind: 'create_periodic_investment', day, name: 'fund',
+          periodAmount: 500, frequency: 'first_of_month',
+          annualGrowthPercent: 5, fromAccount: CASH_ACCOUNT,
+        },
+      ];
+
+      const result = runSimulation(JAN_1_2024, gestures, 1);
+      const lastSnapshot = result.snapshots[result.snapshots.length - 1];
+      expect(lastSnapshot.investmentValues['fund']).toBeGreaterThan(0);
+    });
+
+    it('index price appreciates at the specified annual rate', () => {
+      const day = JAN_1_2024.getTime();
+      const gestures: Gesture[] = [
+        { kind: 'initialize_account', day, accountName: WORLD_ACCOUNT, balance: 0 },
+        { kind: 'initialize_account', day, accountName: CASH_ACCOUNT, balance: 0 },
+        {
+          kind: 'create_periodic_investment', day, name: 'fund',
+          periodAmount: 0, frequency: 'first_of_month',
+          annualGrowthPercent: 5, fromAccount: CASH_ACCOUNT,
+        },
+      ];
+
+      const result = runSimulation(JAN_1_2024, gestures, 1);
+      const fund = result.finalWorld.investments.find(i => i.name === 'fund')!;
+      // After 1 year at 5% annual growth, index should be close to 1.05
+      expect(fund.indexPrice).toBeCloseTo(1.05, 2);
+    });
+  });
 });

@@ -44,6 +44,7 @@ describe('advanceDay', () => {
         frequency: 'daily',
       }],
       eventHistory: [],
+      investments: [],
     };
     const next = advanceDay(world);
     expect(next.accounts.find(a => a.name === 'cash')!.balance).toBe(950);
@@ -67,6 +68,7 @@ describe('advanceDay', () => {
         frequency: 'first_of_month',
       }],
       eventHistory: [],
+      investments: [],
     };
     // Jan 1 -> Jan 2 (not first of month)
     const next = advanceDay(world);
@@ -81,6 +83,7 @@ describe('applyEvents', () => {
       accounts: [],
       eventGenerators: [],
       eventHistory: [],
+      investments: [],
     };
     const result = applyEvents(world, [
       { kind: 'create_account', name: 'a', balance: 100 },
@@ -97,6 +100,7 @@ describe('applyEvents', () => {
       accounts: [],
       eventGenerators: [],
       eventHistory: [{ kind: 'create_account', name: 'existing', balance: 0 }],
+      investments: [],
     };
     const result = applyEvents(world, [
       { kind: 'create_account', name: 'new', balance: 50 },

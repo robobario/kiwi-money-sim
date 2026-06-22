@@ -28,10 +28,12 @@ export function SimulationPage({
   onReset,
 }: SimulationPageProps) {
   const finalBalances = result.finalWorld.accounts;
+  const finalInvestments = result.finalWorld.investments;
   const cashBalance = finalBalances.find(a => a.name === 'cash')?.balance ?? 0;
+  const investmentTotal = finalInvestments.reduce((sum, i) => sum + i.unitsHeld * i.indexPrice, 0);
   const netWorth = finalBalances
     .filter(a => a.name !== WORLD_ACCOUNT)
-    .reduce((sum, a) => sum + a.balance, 0);
+    .reduce((sum, a) => sum + a.balance, 0) + investmentTotal;
 
   return (
     <div className="simulation-page">
@@ -57,6 +59,15 @@ export function SimulationPage({
             </span>
           </div>
         )}
+        {finalInvestments.map(inv => (
+          <div className="stat" key={inv.name}>
+            <span className="stat-label">{inv.name}</span>
+            <span className="stat-value">
+              {formatDollar(inv.unitsHeld * inv.indexPrice)}
+              <span className="stat-sub"> ({inv.unitsHeld.toFixed(2)} units @ {inv.indexPrice.toFixed(4)})</span>
+            </span>
+          </div>
+        ))}
       </div>
 
       <ChartView snapshots={result.snapshots} mortgageName={mortgageName} />

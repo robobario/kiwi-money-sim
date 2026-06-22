@@ -29,14 +29,22 @@ function formatDollar(value: number): string {
   return '$' + Math.round(value).toLocaleString();
 }
 
+const INVESTMENT_COLORS = ['#8b5cf6', '#14b8a6', '#eab308', '#ec4899', '#06b6d4'];
+
 export function ChartView({ snapshots, mortgageName }: ChartViewProps) {
   const labels = snapshots.map(s => formatDate(s.day));
 
-  const netWorth = snapshots.map(s =>
-    Object.entries(s.balances)
+  const investmentNames = snapshots.length > 0
+    ? Object.keys(snapshots[0].investmentValues ?? {})
+    : [];
+
+  const netWorth = snapshots.map(s => {
+    const accountTotal = Object.entries(s.balances)
       .filter(([name]) => name !== WORLD_ACCOUNT)
-      .reduce((sum, [, bal]) => sum + bal, 0)
-  );
+      .reduce((sum, [, bal]) => sum + bal, 0);
+    const investmentTotal = Object.values(s.investmentValues ?? {}).reduce((sum, v) => sum + v, 0);
+    return accountTotal + investmentTotal;
+  });
 
   const cash = snapshots.map(s => s.balances['cash'] ?? 0);
 
@@ -81,6 +89,18 @@ export function ChartView({ snapshots, mortgageName }: ChartViewProps) {
       tension: 0,
     });
   }
+
+  investmentNames.forEach((name, idx) => {
+    const color = INVESTMENT_COLORS[idx % INVESTMENT_COLORS.length];
+    datasets.push({
+      label: name,
+      data: snapshots.map(s => (s.investmentValues ?? {})[name] ?? 0),
+      borderColor: color,
+      backgroundColor: color + '20',
+      pointRadius: 0,
+      tension: 0,
+    });
+  });
 
   return (
     <div style={{ width: '100%', maxWidth: 900, margin: '0 auto' }}>

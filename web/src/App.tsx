@@ -37,6 +37,16 @@ function formToGestures(values: FormValues, startDay: Date): Gesture[] {
     });
   }
 
+  for (const inv of values.investments) {
+    if (inv.name && inv.periodAmount > 0) {
+      gestures.push({
+        kind: 'create_periodic_investment', day, name: inv.name,
+        periodAmount: inv.periodAmount, frequency: inv.frequency,
+        annualGrowthPercent: inv.annualGrowthPercent, fromAccount: CASH_ACCOUNT,
+      });
+    }
+  }
+
   return gestures;
 }
 

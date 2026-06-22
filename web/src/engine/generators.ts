@@ -32,7 +32,29 @@ export interface MortgageRepaymentGenerator {
   readonly frequency: Frequency;
 }
 
-export type EventGenerator = RepeatTransferGenerator | InterestPaymentGenerator | MortgageRepaymentGenerator;
+export interface IndexAppreciationGenerator {
+  readonly kind: 'index_appreciation';
+  readonly name: string;
+  readonly investmentName: string;
+  readonly annualGrowthPercent: number;
+}
+
+export interface PeriodicBuyInvestmentGenerator {
+  readonly kind: 'periodic_buy_investment';
+  readonly name: string;
+  readonly startDay: number;
+  readonly investmentName: string;
+  readonly cashAmount: number;
+  readonly fromAccount: string;
+  readonly frequency: Frequency;
+}
+
+export type EventGenerator =
+  | RepeatTransferGenerator
+  | InterestPaymentGenerator
+  | MortgageRepaymentGenerator
+  | IndexAppreciationGenerator
+  | PeriodicBuyInvestmentGenerator;
 
 export function generate(gen: EventGenerator, world: World): Event[] {
   switch (gen.kind) {
@@ -55,6 +77,16 @@ export function generate(gen: EventGenerator, world: World): Event[] {
       if (account.balance >= 0) return [];
       const payment = roundCents(Math.min(gen.amount, -account.balance));
       return [{ kind: 'transfer', from: gen.paymentFromAccount, to: gen.mortgageAccount, amount: payment }];
+    }
+    case 'index_appreciation': {
+      const investment = world.investments.find(i => i.name === gen.investmentName)!;
+      const dailyMultiplier = Math.pow(1 + gen.annualGrowthPercent / 100, 1 / 365);
+      const newPrice = investment.indexPrice * dailyMultiplier;
+      return [{ kind: 'update_index_price', investmentName: gen.investmentName, newPrice }];
+    }
+    case 'periodic_buy_investment': {
+      if (!shouldFire(gen.frequency, world.currentDay, gen.startDay)) return [];
+      return [{ kind: 'buy_investment_units', investmentName: gen.investmentName, cashAmount: gen.cashAmount, fromAccount: gen.fromAccount }];
     }
   }
 }

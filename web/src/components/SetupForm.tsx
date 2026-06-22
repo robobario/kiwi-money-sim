@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { FormValues, RecurringCostEntry } from '../types/form';
+import type { FormValues, RecurringCostEntry, InvestmentEntry } from '../types/form';
 import { DEFAULT_FORM_VALUES } from '../types/form';
 import type { Frequency } from '../engine/events';
 
@@ -28,6 +28,21 @@ export function SetupForm({ onSubmit, initialValues }: SetupFormProps) {
 
   const removeCost = (index: number) => {
     update('recurringCosts', values.recurringCosts.filter((_, i) => i !== index));
+  };
+
+  const updateInvestment = (index: number, field: keyof InvestmentEntry, value: string | number) => {
+    const updated = values.investments.map((inv, i) =>
+      i === index ? { ...inv, [field]: value } : inv
+    );
+    update('investments', updated);
+  };
+
+  const addInvestment = () => {
+    update('investments', [...values.investments, { name: '', periodAmount: 500, frequency: 'first_of_month' as Frequency, annualGrowthPercent: 5 }]);
+  };
+
+  const removeInvestment = (index: number) => {
+    update('investments', values.investments.filter((_, i) => i !== index));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -79,6 +94,43 @@ export function SetupForm({ onSubmit, initialValues }: SetupFormProps) {
           </div>
         ))}
         <button type="button" onClick={addCost} className="btn-secondary">+ Add Cost</button>
+      </div>
+
+      <div className="form-section">
+        <h3>Investments</h3>
+        {values.investments.map((inv, i) => (
+          <div key={i} className="cost-row">
+            <input
+              type="text"
+              placeholder="Name"
+              value={inv.name}
+              onChange={e => updateInvestment(i, 'name', e.target.value)}
+            />
+            <input
+              type="number"
+              placeholder="Amount per period"
+              value={inv.periodAmount}
+              onChange={e => updateInvestment(i, 'periodAmount', Number(e.target.value))}
+            />
+            <select
+              value={inv.frequency}
+              onChange={e => updateInvestment(i, 'frequency', e.target.value)}
+            >
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="first_of_month">Monthly</option>
+            </select>
+            <input
+              type="number"
+              placeholder="Growth % p.a."
+              step="0.1"
+              value={inv.annualGrowthPercent}
+              onChange={e => updateInvestment(i, 'annualGrowthPercent', Number(e.target.value))}
+            />
+            <button type="button" onClick={() => removeInvestment(i)} className="btn-remove">x</button>
+          </div>
+        ))}
+        <button type="button" onClick={addInvestment} className="btn-secondary">+ Add Investment</button>
       </div>
 
       <div className="form-section">

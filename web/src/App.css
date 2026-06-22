@@ -151,6 +151,12 @@ h3 {
   font-weight: 600;
 }
 
+.stat-sub {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: #6b7280;
+}
+
 .add-event-panel {
   margin-top: 2rem;
   padding-top: 1.5rem;

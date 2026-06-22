@@ -8,6 +8,7 @@ function emptyWorld(): World {
     accounts: [],
     eventGenerators: [],
     eventHistory: [],
+    investments: [],
   };
 }
 

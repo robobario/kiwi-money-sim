@@ -4,11 +4,18 @@ import { applyEvent } from './events';
 import type { EventGenerator } from './generators';
 import { generate } from './generators';
 
+export interface Investment {
+  readonly name: string;
+  readonly indexPrice: number;
+  readonly unitsHeld: number;
+}
+
 export interface World {
   readonly currentDay: number;
   readonly accounts: readonly Account[];
   readonly eventGenerators: readonly EventGenerator[];
   readonly eventHistory: readonly Event[];
+  readonly investments: readonly Investment[];
 }
 
 const DAY_MS = 86_400_000;
@@ -19,6 +26,7 @@ export function createWorld(startDay: Date): World {
     accounts: [],
     eventGenerators: [],
     eventHistory: [],
+    investments: [],
   };
 }
 

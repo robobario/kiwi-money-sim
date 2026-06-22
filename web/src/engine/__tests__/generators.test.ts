@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { generate } from '../generators';
-import type { RepeatTransferGenerator, InterestPaymentGenerator, MortgageRepaymentGenerator } from '../generators';
+import type { RepeatTransferGenerator, InterestPaymentGenerator, MortgageRepaymentGenerator, IndexAppreciationGenerator, PeriodicBuyInvestmentGenerator } from '../generators';
 import type { World } from '../world';
 
 const DAY_MS = 86_400_000;
@@ -12,12 +12,13 @@ const JAN_7_2024 = JAN_1_2024 + 6 * DAY_MS; // Sunday
 const JAN_8_2024 = JAN_1_2024 + 7 * DAY_MS; // Monday (same day of week as Jan 1)
 const FEB_1_2024 = Date.UTC(2024, 1, 1);
 
-function worldAt(day: number, accounts: { name: string; balance: number }[] = []): World {
+function worldAt(day: number, accounts: { name: string; balance: number }[] = [], investments: { name: string; indexPrice: number; unitsHeld: number }[] = []): World {
   return {
     currentDay: day,
     accounts,
     eventGenerators: [],
     eventHistory: [],
+    investments,
   };
 }
 
@@ -217,5 +218,66 @@ describe('MortgageRepaymentGenerator', () => {
       { name: 'cash', balance: 10000 },
     ]);
     expect(generate(repaymentGen, world)).toHaveLength(0);
+  });
+});
+
+describe('IndexAppreciationGenerator', () => {
+  const appreciationGen: IndexAppreciationGenerator = {
+    kind: 'index_appreciation',
+    name: 'fund-appreciation',
+    investmentName: 'fund',
+    annualGrowthPercent: 5,
+  };
+
+  it('fires every day and emits an update_index_price event', () => {
+    const world = worldAt(JAN_1_2024, [], [{ name: 'fund', indexPrice: 1.0, unitsHeld: 0 }]);
+    const events = generate(appreciationGen, world);
+    expect(events).toHaveLength(1);
+    expect(events[0].kind).toBe('update_index_price');
+  });
+
+  it('price after one day is correct for 5% annual growth', () => {
+    const world = worldAt(JAN_1_2024, [], [{ name: 'fund', indexPrice: 1.0, unitsHeld: 0 }]);
+    const events = generate(appreciationGen, world);
+    const event = events[0];
+    if (event.kind === 'update_index_price') {
+      // (1.05)^(1/365) ≈ 1.0001337
+      expect(event.newPrice).toBeCloseTo(1.0001337, 6);
+    }
+  });
+
+  it('compounding over 365 days yields approximately 5% growth', () => {
+    let price = 1.0;
+    const dailyMultiplier = Math.pow(1.05, 1 / 365);
+    for (let i = 0; i < 365; i++) {
+      const world = worldAt(JAN_1_2024, [], [{ name: 'fund', indexPrice: price, unitsHeld: 0 }]);
+      const events = generate(appreciationGen, world);
+      if (events[0].kind === 'update_index_price') price = events[0].newPrice;
+    }
+    expect(price).toBeCloseTo(1.05, 4);
+  });
+});
+
+describe('PeriodicBuyInvestmentGenerator', () => {
+  const buyGen: PeriodicBuyInvestmentGenerator = {
+    kind: 'periodic_buy_investment',
+    name: 'fund-buy',
+    startDay: JAN_1_2024,
+    investmentName: 'fund',
+    cashAmount: 500,
+    fromAccount: 'cash',
+    frequency: 'first_of_month',
+  };
+
+  it('fires on the first of the month and emits buy_investment_units', () => {
+    const world = worldAt(FEB_1_2024, [{ name: 'cash', balance: 1000 }], [{ name: 'fund', indexPrice: 1.0, unitsHeld: 0 }]);
+    const events = generate(buyGen, world);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toEqual({ kind: 'buy_investment_units', investmentName: 'fund', cashAmount: 500, fromAccount: 'cash' });
+  });
+
+  it('does not fire on non-first-of-month days', () => {
+    const world = worldAt(JAN_2_2024, [{ name: 'cash', balance: 1000 }], [{ name: 'fund', indexPrice: 1.0, unitsHeld: 0 }]);
+    expect(generate(buyGen, world)).toHaveLength(0);
   });
 });

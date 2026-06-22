@@ -40,11 +40,22 @@ export interface CreateExistingMortgageGesture {
   readonly paymentFromAccount: string;
 }
 
+export interface CreatePeriodicInvestmentGesture {
+  readonly kind: 'create_periodic_investment';
+  readonly day: number;
+  readonly name: string;
+  readonly periodAmount: number;
+  readonly frequency: Frequency;
+  readonly annualGrowthPercent: number;
+  readonly fromAccount: string;
+}
+
 export type Gesture =
   | InitializeAccountGesture
   | CreateIncomeGesture
   | CreateRepeatCostGesture
-  | CreateExistingMortgageGesture;
+  | CreateExistingMortgageGesture
+  | CreatePeriodicInvestmentGesture;
 
 export function gestureEvents(gesture: Gesture): Event[] {
   switch (gesture.kind) {
@@ -80,6 +91,34 @@ export function gestureEvents(gesture: Gesture): Event[] {
           frequency: gesture.frequency,
         },
       }];
+
+    case 'create_periodic_investment':
+      return [
+        { kind: 'create_investment', name: gesture.name, initialPrice: 1.0 },
+        {
+          kind: 'register_generator',
+          name: `${gesture.name}-appreciation`,
+          generator: {
+            kind: 'index_appreciation',
+            name: `${gesture.name}-appreciation`,
+            investmentName: gesture.name,
+            annualGrowthPercent: gesture.annualGrowthPercent,
+          },
+        },
+        {
+          kind: 'register_generator',
+          name: `${gesture.name}-buy`,
+          generator: {
+            kind: 'periodic_buy_investment',
+            name: `${gesture.name}-buy`,
+            startDay: gesture.day,
+            investmentName: gesture.name,
+            cashAmount: gesture.periodAmount,
+            fromAccount: gesture.fromAccount,
+            frequency: gesture.frequency,
+          },
+        },
+      ];
 
     case 'create_existing_mortgage': {
       const mortgageAccount = `${gesture.name}-mortgage`;
