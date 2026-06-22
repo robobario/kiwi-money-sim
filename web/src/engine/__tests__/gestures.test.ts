@@ -94,10 +94,10 @@ describe('gestureEvents', () => {
     it('registers repayment generator with calculated payment', () => {
       expect(events[3].kind).toBe('register_generator');
       if (events[3].kind === 'register_generator') {
-        expect(events[3].generator.kind).toBe('repeat_transfer');
-        if (events[3].generator.kind === 'repeat_transfer') {
-          expect(events[3].generator.from).toBe('cash');
-          expect(events[3].generator.to).toBe('home-mortgage');
+        expect(events[3].generator.kind).toBe('mortgage_repayment');
+        if (events[3].generator.kind === 'mortgage_repayment') {
+          expect(events[3].generator.paymentFromAccount).toBe('cash');
+          expect(events[3].generator.mortgageAccount).toBe('home-mortgage');
           expect(events[3].generator.amount).toBeCloseTo(1639.38, 0);
         }
       }

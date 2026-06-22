@@ -22,7 +22,17 @@ export interface InterestPaymentGenerator {
   readonly frequency: Frequency;
 }
 
-export type EventGenerator = RepeatTransferGenerator | InterestPaymentGenerator;
+export interface MortgageRepaymentGenerator {
+  readonly kind: 'mortgage_repayment';
+  readonly name: string;
+  readonly startDay: number;
+  readonly mortgageAccount: string;
+  readonly paymentFromAccount: string;
+  readonly amount: number;
+  readonly frequency: Frequency;
+}
+
+export type EventGenerator = RepeatTransferGenerator | InterestPaymentGenerator | MortgageRepaymentGenerator;
 
 export function generate(gen: EventGenerator, world: World): Event[] {
   switch (gen.kind) {
@@ -32,11 +42,19 @@ export function generate(gen: EventGenerator, world: World): Event[] {
     }
     case 'interest_payment': {
       if (!shouldFire(gen.frequency, world.currentDay, gen.startDay)) return [];
+      const account = world.accounts.find(a => a.name === gen.mortgageAccount)!;
+      if (account.balance >= 0) return [];
       const paymentsPerYear = paymentsPerYearFor(gen.frequency);
       const periodicRate = gen.annualRatePercent / 100 / paymentsPerYear;
-      const account = world.accounts.find(a => a.name === gen.mortgageAccount)!;
       const interest = roundCents(-account.balance * periodicRate);
       return [{ kind: 'transfer', from: gen.mortgageAccount, to: gen.interestSinkAccount, amount: interest }];
+    }
+    case 'mortgage_repayment': {
+      if (!shouldFire(gen.frequency, world.currentDay, gen.startDay)) return [];
+      const account = world.accounts.find(a => a.name === gen.mortgageAccount)!;
+      if (account.balance >= 0) return [];
+      const payment = roundCents(Math.min(gen.amount, -account.balance));
+      return [{ kind: 'transfer', from: gen.paymentFromAccount, to: gen.mortgageAccount, amount: payment }];
     }
   }
 }

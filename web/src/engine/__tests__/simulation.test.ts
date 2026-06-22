@@ -134,6 +134,26 @@ describe('runSimulation', () => {
       expect(cash).toBeGreaterThan(0);
     });
 
+    it('mortgage balance reaches zero by end of term', () => {
+      const day = JAN_1_2024.getTime();
+      const termYears = 22;
+      const gestures: Gesture[] = [
+        { kind: 'initialize_account', day, accountName: WORLD_ACCOUNT, balance: 0 },
+        { kind: 'initialize_account', day, accountName: CASH_ACCOUNT, balance: 1_000_000 },
+        {
+          kind: 'create_existing_mortgage', day, name: 'home',
+          principal: 240000, assetValue: 700000, annualRatePercent: 6.0,
+          interestFrequency: 'first_of_month', termYears, paymentFromAccount: CASH_ACCOUNT,
+        },
+      ];
+
+      // Run one extra year: rounding on each payment can leave a small residual that
+      // clears in 1-2 extra months, after which both generators stop firing permanently.
+      const result = runSimulation(JAN_1_2024, gestures, termYears + 1);
+      const mortgage = result.finalWorld.accounts.find(a => a.name === 'home-mortgage')!.balance;
+      expect(mortgage).toBeCloseTo(0, 2);
+    });
+
     it('mortgage balance decreases over time', () => {
       const day = JAN_1_2024.getTime();
       const gestures: Gesture[] = [

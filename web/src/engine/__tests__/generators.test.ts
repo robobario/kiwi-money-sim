@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { generate } from '../generators';
-import type { RepeatTransferGenerator, InterestPaymentGenerator } from '../generators';
+import type { RepeatTransferGenerator, InterestPaymentGenerator, MortgageRepaymentGenerator } from '../generators';
 import type { World } from '../world';
 
 const DAY_MS = 86_400_000;
@@ -145,5 +145,77 @@ describe('InterestPaymentGenerator', () => {
     const events = generate(weeklyGen, world);
     expect(events).toHaveLength(1);
     expect(events[0].kind === 'transfer' && events[0].amount).toBeCloseTo(276.92, 1);
+  });
+
+  it('does not fire when mortgage balance is zero', () => {
+    const world = worldAt(FEB_1_2024, [
+      { name: 'mortgage', balance: 0 },
+      { name: 'world', balance: 0 },
+    ]);
+    expect(generate(interestGen, world)).toHaveLength(0);
+  });
+
+  it('does not fire when mortgage balance is positive', () => {
+    const world = worldAt(FEB_1_2024, [
+      { name: 'mortgage', balance: 100 },
+      { name: 'world', balance: 0 },
+    ]);
+    expect(generate(interestGen, world)).toHaveLength(0);
+  });
+});
+
+describe('MortgageRepaymentGenerator', () => {
+  const repaymentGen: MortgageRepaymentGenerator = {
+    kind: 'mortgage_repayment',
+    name: 'home-repayment',
+    startDay: JAN_1_2024,
+    mortgageAccount: 'mortgage',
+    paymentFromAccount: 'cash',
+    amount: 1500,
+    frequency: 'first_of_month',
+  };
+
+  it('transfers the full payment when balance is well below zero', () => {
+    const world = worldAt(FEB_1_2024, [
+      { name: 'mortgage', balance: -240000 },
+      { name: 'cash', balance: 10000 },
+    ]);
+    const events = generate(repaymentGen, world);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toEqual({ kind: 'transfer', from: 'cash', to: 'mortgage', amount: 1500 });
+  });
+
+  it('caps the final payment to the remaining principal', () => {
+    const world = worldAt(FEB_1_2024, [
+      { name: 'mortgage', balance: -500 },
+      { name: 'cash', balance: 10000 },
+    ]);
+    const events = generate(repaymentGen, world);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toEqual({ kind: 'transfer', from: 'cash', to: 'mortgage', amount: 500 });
+  });
+
+  it('does not fire when mortgage balance is zero', () => {
+    const world = worldAt(FEB_1_2024, [
+      { name: 'mortgage', balance: 0 },
+      { name: 'cash', balance: 10000 },
+    ]);
+    expect(generate(repaymentGen, world)).toHaveLength(0);
+  });
+
+  it('does not fire when mortgage balance is positive', () => {
+    const world = worldAt(FEB_1_2024, [
+      { name: 'mortgage', balance: 50 },
+      { name: 'cash', balance: 10000 },
+    ]);
+    expect(generate(repaymentGen, world)).toHaveLength(0);
+  });
+
+  it('does not fire on non-first-of-month days', () => {
+    const world = worldAt(JAN_2_2024, [
+      { name: 'mortgage', balance: -240000 },
+      { name: 'cash', balance: 10000 },
+    ]);
+    expect(generate(repaymentGen, world)).toHaveLength(0);
   });
 });
