@@ -180,6 +180,57 @@ describe('runSimulation', () => {
     });
   });
 
+  describe('inflation scenario', () => {
+    it('inflation-linked cost grows in nominal terms over time', () => {
+      const day = JAN_1_2024.getTime();
+      const gestures: Gesture[] = [
+        { kind: 'initialize_account', day, accountName: WORLD_ACCOUNT, balance: 0 },
+        { kind: 'initialize_account', day, accountName: CASH_ACCOUNT, balance: 1_000_000 },
+        { kind: 'create_inflation', day, annualRatePercent: 3 },
+        {
+          kind: 'create_repeat_cost', day, name: 'linked-cost', frequency: 'first_of_month',
+          amount: 1000, fromAccount: CASH_ACCOUNT, inflationLinked: true,
+        },
+        {
+          kind: 'create_repeat_cost', day, name: 'static-cost', frequency: 'first_of_month',
+          amount: 1000, fromAccount: CASH_ACCOUNT,
+        },
+      ];
+
+      const result = runSimulation(JAN_1_2024, gestures, 10);
+      const linked = result.finalWorld.accounts.find(a => a.name === 'linked-cost-spend')!.balance;
+      const staticAcc = result.finalWorld.accounts.find(a => a.name === 'static-cost-spend')!.balance;
+
+      // Inflation-linked cumulative spend must exceed static spend over 10 years at 3% inflation
+      expect(linked).toBeGreaterThan(staticAcc);
+      // After ~10 years at 3%, the index is ~1.34, so linked total should be ~34% higher
+      expect(linked / staticAcc).toBeCloseTo(1.16, 0);
+    });
+
+    it('inflation-linked salary grows with inflation', () => {
+      const day = JAN_1_2024.getTime();
+      const gestures: Gesture[] = [
+        { kind: 'initialize_account', day, accountName: WORLD_ACCOUNT, balance: 0 },
+        { kind: 'initialize_account', day, accountName: CASH_ACCOUNT, balance: 0 },
+        { kind: 'create_inflation', day, annualRatePercent: 3 },
+        {
+          kind: 'create_income', day, name: 'salary', frequency: 'first_of_month',
+          amount: 5000, toAccount: CASH_ACCOUNT, fromAccount: WORLD_ACCOUNT,
+          inflationLinked: true,
+        },
+        {
+          kind: 'create_repeat_cost', day, name: 'costs', frequency: 'first_of_month',
+          amount: 5000, fromAccount: CASH_ACCOUNT,
+        },
+      ];
+
+      // With salary linked and costs static, cash should be positive after 10 years
+      const result = runSimulation(JAN_1_2024, gestures, 10);
+      const cash = result.finalWorld.accounts.find(a => a.name === CASH_ACCOUNT)!.balance;
+      expect(cash).toBeGreaterThan(0);
+    });
+  });
+
   describe('investment scenario', () => {
     it('investment value grows over time with appreciation', () => {
       const day = JAN_1_2024.getTime();

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { generate } from '../generators';
-import type { RepeatTransferGenerator, InterestPaymentGenerator, MortgageRepaymentGenerator, IndexAppreciationGenerator, PeriodicBuyInvestmentGenerator } from '../generators';
+import type { RepeatTransferGenerator, InterestPaymentGenerator, MortgageRepaymentGenerator, IndexAppreciationGenerator, PeriodicBuyInvestmentGenerator, InflationGenerator } from '../generators';
 import type { World } from '../world';
 
 const DAY_MS = 86_400_000;
@@ -12,13 +12,14 @@ const JAN_7_2024 = JAN_1_2024 + 6 * DAY_MS; // Sunday
 const JAN_8_2024 = JAN_1_2024 + 7 * DAY_MS; // Monday (same day of week as Jan 1)
 const FEB_1_2024 = Date.UTC(2024, 1, 1);
 
-function worldAt(day: number, accounts: { name: string; balance: number }[] = [], investments: { name: string; indexPrice: number; unitsHeld: number }[] = []): World {
+function worldAt(day: number, accounts: { name: string; balance: number }[] = [], investments: { name: string; indexPrice: number; unitsHeld: number }[] = [], inflationIndex = 1): World {
   return {
     currentDay: day,
     accounts,
     eventGenerators: [],
     eventHistory: [],
     investments,
+    inflationIndex,
   };
 }
 
@@ -278,5 +279,82 @@ describe('PeriodicBuyInvestmentGenerator', () => {
   it('does not fire on non-first-of-month days', () => {
     const world = worldAt(JAN_2_2024, [{ name: 'cash', balance: 1000 }], [{ name: 'fund', indexPrice: 1.0, unitsHeld: 0 }]);
     expect(generate(buyGen, world)).toHaveLength(0);
+  });
+});
+
+describe('InflationGenerator', () => {
+  const inflationGen: InflationGenerator = {
+    kind: 'inflation',
+    name: 'inflation-3pct',
+    annualRatePercent: 3,
+  };
+
+  it('fires every day and emits an update_inflation_index event', () => {
+    const world = worldAt(JAN_1_2024);
+    const events = generate(inflationGen, world);
+    expect(events).toHaveLength(1);
+    expect(events[0].kind).toBe('update_inflation_index');
+  });
+
+  it('computes correct daily multiplier for 3% annual', () => {
+    const world = worldAt(JAN_1_2024, [], [], 1.0);
+    const events = generate(inflationGen, world);
+    const event = events[0];
+    if (event.kind === 'update_inflation_index') {
+      // (1.03)^(1/365) ≈ 1.0000810
+      expect(event.newIndex).toBeCloseTo(1.0000810, 6);
+    }
+  });
+
+  it('compounding over 365 days yields approximately 3% growth', () => {
+    let index = 1.0;
+    for (let i = 0; i < 365; i++) {
+      const world = worldAt(JAN_1_2024, [], [], index);
+      const events = generate(inflationGen, world);
+      if (events[0].kind === 'update_inflation_index') index = events[0].newIndex;
+    }
+    expect(index).toBeCloseTo(1.03, 4);
+  });
+});
+
+describe('RepeatTransferGenerator with inflation', () => {
+  const inflationLinkedGen: RepeatTransferGenerator = {
+    kind: 'repeat_transfer',
+    name: 'linked-cost',
+    startDay: JAN_1_2024,
+    from: 'cash',
+    to: 'world',
+    amount: 1000,
+    frequency: 'first_of_month',
+    inflationLinked: true,
+    baseInflationIndex: 1.0,
+  };
+
+  it('amount is unscaled when inflationIndex equals base', () => {
+    const world = worldAt(FEB_1_2024, [], [], 1.0);
+    const events = generate(inflationLinkedGen, world);
+    expect(events[0]).toEqual({ kind: 'transfer', from: 'cash', to: 'world', amount: 1000 });
+  });
+
+  it('amount scales proportionally with inflationIndex', () => {
+    // inflationIndex is 1.2 vs base 1.0 → amount should be 1200
+    const world = worldAt(FEB_1_2024, [], [], 1.2);
+    const events = generate(inflationLinkedGen, world);
+    expect(events[0]).toEqual({ kind: 'transfer', from: 'cash', to: 'world', amount: 1200 });
+  });
+
+  it('amount scales relative to a non-1 base index', () => {
+    const gen: RepeatTransferGenerator = { ...inflationLinkedGen, baseInflationIndex: 1.2 };
+    // inflationIndex 1.44 / base 1.2 = 1.2× → amount 1200
+    const world = worldAt(FEB_1_2024, [], [], 1.44);
+    const events = generate(gen, world);
+    expect(events[0]).toEqual({ kind: 'transfer', from: 'cash', to: 'world', amount: 1200 });
+  });
+
+  it('non-linked generator ignores inflationIndex', () => {
+    const staticGen: RepeatTransferGenerator = { ...inflationLinkedGen, inflationLinked: false };
+    const world = worldAt(FEB_1_2024, [], [], 2.0);
+    const events = generate(staticGen, world);
+    expect(events[0]).toEqual({ kind: 'transfer', from: 'cash', to: 'world', amount: 1000 });
   });
 });

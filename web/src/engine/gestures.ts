@@ -1,4 +1,5 @@
 import type { Event, Frequency } from './events';
+import type { World } from './world';
 import { roundCents } from './money';
 
 export interface InitializeAccountGesture {
@@ -17,6 +18,7 @@ export interface CreateIncomeGesture {
   readonly amount: number;
   readonly toAccount: string;
   readonly fromAccount: string;
+  readonly inflationLinked?: boolean;
 }
 
 export interface CreateRepeatCostGesture {
@@ -26,6 +28,13 @@ export interface CreateRepeatCostGesture {
   readonly frequency: Frequency;
   readonly amount: number;
   readonly fromAccount: string;
+  readonly inflationLinked?: boolean;
+}
+
+export interface CreateInflationGesture {
+  readonly kind: 'create_inflation';
+  readonly day: number;
+  readonly annualRatePercent: number;
 }
 
 export interface CreateExistingMortgageGesture {
@@ -55,9 +64,11 @@ export type Gesture =
   | CreateIncomeGesture
   | CreateRepeatCostGesture
   | CreateExistingMortgageGesture
-  | CreatePeriodicInvestmentGesture;
+  | CreatePeriodicInvestmentGesture
+  | CreateInflationGesture;
 
-export function gestureEvents(gesture: Gesture): Event[] {
+export function gestureEvents(gesture: Gesture, world?: World): Event[] {
+  const baseInflationIndex = world?.inflationIndex ?? 1;
   switch (gesture.kind) {
     case 'initialize_account':
       return [{ kind: 'create_account', name: gesture.accountName, balance: gesture.balance, external: gesture.external }];
@@ -74,6 +85,8 @@ export function gestureEvents(gesture: Gesture): Event[] {
           to: gesture.toAccount,
           amount: gesture.amount,
           frequency: gesture.frequency,
+          inflationLinked: gesture.inflationLinked,
+          baseInflationIndex,
         },
       }];
 
@@ -92,10 +105,23 @@ export function gestureEvents(gesture: Gesture): Event[] {
             to: spendAccount,
             amount: gesture.amount,
             frequency: gesture.frequency,
+            inflationLinked: gesture.inflationLinked,
+            baseInflationIndex,
           },
         },
       ];
     }
+
+    case 'create_inflation':
+      return [{
+        kind: 'register_generator',
+        name: `inflation-${gesture.annualRatePercent}pct`,
+        generator: {
+          kind: 'inflation',
+          name: `inflation-${gesture.annualRatePercent}pct`,
+          annualRatePercent: gesture.annualRatePercent,
+        },
+      }];
 
     case 'create_periodic_investment':
       return [

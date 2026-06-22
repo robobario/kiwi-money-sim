@@ -42,6 +42,7 @@ export function AddEventPanel({ addedEvents, onAddEvent, onRemoveEvent, onRerun 
   const [frequency, setFrequency] = useState<Frequency>('first_of_month');
   const [annualGrowthPercent, setAnnualGrowthPercent] = useState(5);
   const [startDate, setStartDate] = useState('');
+  const [inflationLinked, setInflationLinked] = useState(false);
 
   const handleAdd = () => {
     if (!name || !startDate || amount <= 0) return;
@@ -56,6 +57,7 @@ export function AddEventPanel({ addedEvents, onAddEvent, onRemoveEvent, onRerun 
         amount,
         toAccount: CASH_ACCOUNT,
         fromAccount: WORLD_ACCOUNT,
+        inflationLinked,
       });
     } else if (eventType === 'cost') {
       onAddEvent({
@@ -65,6 +67,7 @@ export function AddEventPanel({ addedEvents, onAddEvent, onRemoveEvent, onRerun 
         frequency,
         amount,
         fromAccount: CASH_ACCOUNT,
+        inflationLinked,
       });
     } else {
       onAddEvent({
@@ -81,6 +84,7 @@ export function AddEventPanel({ addedEvents, onAddEvent, onRemoveEvent, onRerun 
     setName('');
     setAmount(0);
     setStartDate('');
+    setInflationLinked(false);
   };
 
   return (
@@ -107,6 +111,16 @@ export function AddEventPanel({ addedEvents, onAddEvent, onRemoveEvent, onRerun 
             value={annualGrowthPercent}
             onChange={e => setAnnualGrowthPercent(Number(e.target.value))}
           />
+        )}
+        {(eventType === 'cost' || eventType === 'income') && (
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={inflationLinked}
+              onChange={e => setInflationLinked(e.target.checked)}
+            />
+            Inflation-linked
+          </label>
         )}
         <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
         <button type="button" onClick={handleAdd} className="btn-secondary">Add</button>

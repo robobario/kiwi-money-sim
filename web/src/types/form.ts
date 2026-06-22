@@ -4,6 +4,7 @@ export interface RecurringCostEntry {
   readonly name: string;
   readonly amount: number;
   readonly frequency: Frequency;
+  readonly inflationLinked: boolean;
 }
 
 export interface InvestmentEntry {
@@ -16,6 +17,8 @@ export interface InvestmentEntry {
 export interface FormValues {
   readonly startingCash: number;
   readonly monthlySalary: number;
+  readonly salaryInflationLinked: boolean;
+  readonly inflationRatePercent: number;
   readonly recurringCosts: readonly RecurringCostEntry[];
   readonly investments: readonly InvestmentEntry[];
   readonly hasMortgage: boolean;
@@ -29,7 +32,9 @@ export interface FormValues {
 export const DEFAULT_FORM_VALUES: FormValues = {
   startingCash: 0,
   monthlySalary: 5000,
-  recurringCosts: [{ name: 'living-costs', amount: 250, frequency: 'weekly' }],
+  salaryInflationLinked: false,
+  inflationRatePercent: 0,
+  recurringCosts: [{ name: 'living-costs', amount: 250, frequency: 'weekly', inflationLinked: false }],
   investments: [{ name: 'Index Fund', periodAmount: 500, frequency: 'first_of_month', annualGrowthPercent: 5 }],
   hasMortgage: false,
   mortgagePrincipal: 240000,

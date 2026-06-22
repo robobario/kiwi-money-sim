@@ -43,13 +43,19 @@ export interface BuyInvestmentUnitsEvent {
   readonly fromAccount: string;
 }
 
+export interface UpdateInflationIndexEvent {
+  readonly kind: 'update_inflation_index';
+  readonly newIndex: number;
+}
+
 export type Event =
   | TransferEvent
   | CreateAccountEvent
   | RegisterGeneratorEvent
   | CreateInvestmentEvent
   | UpdateIndexPriceEvent
-  | BuyInvestmentUnitsEvent;
+  | BuyInvestmentUnitsEvent
+  | UpdateInflationIndexEvent;
 
 export function applyEvent(world: World, event: Event): World {
   switch (event.kind) {
@@ -88,6 +94,9 @@ export function applyEvent(world: World, event: Event): World {
         ),
       };
     }
+    case 'update_inflation_index':
+      return { ...world, inflationIndex: event.newIndex };
+
     case 'buy_investment_units': {
       const investment = world.investments.find(i => i.name === event.investmentName)!;
       const unitsToAdd = event.cashAmount / investment.indexPrice;

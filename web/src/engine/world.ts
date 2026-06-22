@@ -16,6 +16,7 @@ export interface World {
   readonly eventGenerators: readonly EventGenerator[];
   readonly eventHistory: readonly Event[];
   readonly investments: readonly Investment[];
+  readonly inflationIndex: number;
 }
 
 const DAY_MS = 86_400_000;
@@ -27,6 +28,7 @@ export function createWorld(startDay: Date): World {
     eventGenerators: [],
     eventHistory: [],
     investments: [],
+    inflationIndex: 1,
   };
 }
 

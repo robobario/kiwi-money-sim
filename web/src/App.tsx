@@ -15,8 +15,13 @@ function formToGestures(values: FormValues, startDay: Date): Gesture[] {
     {
       kind: 'create_income', day, name: 'salary', frequency: 'first_of_month',
       amount: values.monthlySalary, toAccount: CASH_ACCOUNT, fromAccount: WORLD_ACCOUNT,
+      inflationLinked: values.salaryInflationLinked,
     },
   ];
+
+  if (values.inflationRatePercent > 0) {
+    gestures.push({ kind: 'create_inflation', day, annualRatePercent: values.inflationRatePercent });
+  }
 
   for (const cost of values.recurringCosts) {
     if (cost.name && cost.amount > 0) {
@@ -24,6 +29,7 @@ function formToGestures(values: FormValues, startDay: Date): Gesture[] {
         kind: 'create_repeat_cost', day, name: cost.name,
         frequency: cost.frequency, amount: cost.amount,
         fromAccount: CASH_ACCOUNT,
+        inflationLinked: cost.inflationLinked,
       });
     }
   }

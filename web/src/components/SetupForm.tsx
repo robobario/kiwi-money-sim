@@ -15,7 +15,7 @@ export function SetupForm({ onSubmit, initialValues }: SetupFormProps) {
     setValues(prev => ({ ...prev, [key]: value }));
   };
 
-  const updateCost = (index: number, field: keyof RecurringCostEntry, value: string | number) => {
+  const updateCost = (index: number, field: keyof RecurringCostEntry, value: string | number | boolean) => {
     const updated = values.recurringCosts.map((c, i) =>
       i === index ? { ...c, [field]: value } : c
     );
@@ -23,7 +23,7 @@ export function SetupForm({ onSubmit, initialValues }: SetupFormProps) {
   };
 
   const addCost = () => {
-    update('recurringCosts', [...values.recurringCosts, { name: '', amount: 0, frequency: 'monthly' as Frequency }]);
+    update('recurringCosts', [...values.recurringCosts, { name: '', amount: 0, frequency: 'monthly' as Frequency, inflationLinked: false }]);
   };
 
   const removeCost = (index: number) => {
@@ -49,6 +49,8 @@ export function SetupForm({ onSubmit, initialValues }: SetupFormProps) {
     e.preventDefault();
     onSubmit(values);
   };
+
+  const inflationActive = values.inflationRatePercent > 0;
 
   return (
     <form onSubmit={handleSubmit} className="setup-form">
@@ -90,6 +92,16 @@ export function SetupForm({ onSubmit, initialValues }: SetupFormProps) {
               <option value="weekly">Weekly</option>
               <option value="first_of_month">Monthly</option>
             </select>
+            {inflationActive && (
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={cost.inflationLinked}
+                  onChange={e => updateCost(i, 'inflationLinked', e.target.checked)}
+                />
+                Inflation-linked
+              </label>
+            )}
             <button type="button" onClick={() => removeCost(i)} className="btn-remove">x</button>
           </div>
         ))}
@@ -131,6 +143,30 @@ export function SetupForm({ onSubmit, initialValues }: SetupFormProps) {
           </div>
         ))}
         <button type="button" onClick={addInvestment} className="btn-secondary">+ Add Investment</button>
+      </div>
+
+      <div className="form-section">
+        <h3>Inflation</h3>
+        <label>
+          Annual Inflation Rate (%)
+          <input
+            type="number"
+            step="0.1"
+            min="0"
+            value={values.inflationRatePercent}
+            onChange={e => update('inflationRatePercent', Number(e.target.value))}
+          />
+        </label>
+        {inflationActive && (
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={values.salaryInflationLinked}
+              onChange={e => update('salaryInflationLinked', e.target.checked)}
+            />
+            Salary grows with inflation
+          </label>
+        )}
       </div>
 
       <div className="form-section">

@@ -10,6 +10,8 @@ export interface RepeatTransferGenerator {
   readonly to: string;
   readonly amount: number;
   readonly frequency: Frequency;
+  readonly inflationLinked?: boolean;
+  readonly baseInflationIndex?: number;
 }
 
 export interface InterestPaymentGenerator {
@@ -49,18 +51,28 @@ export interface PeriodicBuyInvestmentGenerator {
   readonly frequency: Frequency;
 }
 
+export interface InflationGenerator {
+  readonly kind: 'inflation';
+  readonly name: string;
+  readonly annualRatePercent: number;
+}
+
 export type EventGenerator =
   | RepeatTransferGenerator
   | InterestPaymentGenerator
   | MortgageRepaymentGenerator
   | IndexAppreciationGenerator
-  | PeriodicBuyInvestmentGenerator;
+  | PeriodicBuyInvestmentGenerator
+  | InflationGenerator;
 
 export function generate(gen: EventGenerator, world: World): Event[] {
   switch (gen.kind) {
     case 'repeat_transfer': {
       if (!shouldFire(gen.frequency, world.currentDay, gen.startDay)) return [];
-      return [{ kind: 'transfer', from: gen.from, to: gen.to, amount: gen.amount }];
+      const amount = gen.inflationLinked
+        ? roundCents(gen.amount * world.inflationIndex / (gen.baseInflationIndex ?? 1))
+        : gen.amount;
+      return [{ kind: 'transfer', from: gen.from, to: gen.to, amount }];
     }
     case 'interest_payment': {
       if (!shouldFire(gen.frequency, world.currentDay, gen.startDay)) return [];
@@ -87,6 +99,10 @@ export function generate(gen: EventGenerator, world: World): Event[] {
     case 'periodic_buy_investment': {
       if (!shouldFire(gen.frequency, world.currentDay, gen.startDay)) return [];
       return [{ kind: 'buy_investment_units', investmentName: gen.investmentName, cashAmount: gen.cashAmount, fromAccount: gen.fromAccount }];
+    }
+    case 'inflation': {
+      const dailyMultiplier = Math.pow(1 + gen.annualRatePercent / 100, 1 / 365);
+      return [{ kind: 'update_inflation_index', newIndex: world.inflationIndex * dailyMultiplier }];
     }
   }
 }

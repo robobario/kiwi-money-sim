@@ -9,6 +9,7 @@ function emptyWorld(): World {
     eventGenerators: [],
     eventHistory: [],
     investments: [],
+    inflationIndex: 1,
   };
 }
 

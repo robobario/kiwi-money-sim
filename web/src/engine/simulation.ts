@@ -54,7 +54,7 @@ export function runSimulation(
 function triggerGestures(world: World, gestures: Gesture[]): World {
   const matching = gestures.filter(g => g.day === world.currentDay);
   if (matching.length === 0) return world;
-  const events = matching.flatMap(gestureEvents);
+  const events = matching.flatMap(g => gestureEvents(g, world));
   return applyEvents(world, events);
 }
 

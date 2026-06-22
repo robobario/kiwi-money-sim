@@ -105,6 +105,69 @@ describe('gestureEvents', () => {
   });
 });
 
+describe('inflation-linked gestures', () => {
+  it('create_inflation registers an inflation generator', () => {
+    const events = gestureEvents({
+      kind: 'create_inflation',
+      day: JAN_1_2024,
+      annualRatePercent: 3,
+    });
+    expect(events).toHaveLength(1);
+    expect(events[0].kind).toBe('register_generator');
+    if (events[0].kind === 'register_generator') {
+      expect(events[0].generator.kind).toBe('inflation');
+      if (events[0].generator.kind === 'inflation') {
+        expect(events[0].generator.annualRatePercent).toBe(3);
+      }
+    }
+  });
+
+  it('create_repeat_cost with inflationLinked captures baseInflationIndex from world', () => {
+    const world = {
+      currentDay: JAN_1_2024,
+      accounts: [],
+      eventGenerators: [],
+      eventHistory: [],
+      investments: [],
+      inflationIndex: 1.5,
+    };
+    const events = gestureEvents({
+      kind: 'create_repeat_cost',
+      day: JAN_1_2024,
+      name: 'rent',
+      frequency: 'first_of_month',
+      amount: 1000,
+      fromAccount: 'cash',
+      inflationLinked: true,
+    }, world);
+    expect(events[1].kind).toBe('register_generator');
+    if (events[1].kind === 'register_generator') {
+      if (events[1].generator.kind === 'repeat_transfer') {
+        expect(events[1].generator.inflationLinked).toBe(true);
+        expect(events[1].generator.baseInflationIndex).toBe(1.5);
+      }
+    }
+  });
+
+  it('gestureEvents without world defaults baseInflationIndex to 1', () => {
+    const events = gestureEvents({
+      kind: 'create_income',
+      day: JAN_1_2024,
+      name: 'salary',
+      frequency: 'first_of_month',
+      amount: 5000,
+      toAccount: 'cash',
+      fromAccount: 'world',
+      inflationLinked: true,
+    });
+    if (events[0].kind === 'register_generator') {
+      if (events[0].generator.kind === 'repeat_transfer') {
+        expect(events[0].generator.baseInflationIndex).toBe(1);
+      }
+    }
+  });
+});
+
 describe('calculateMonthlyPayment', () => {
   it('calculates correctly for 240k at 6% over 22 years', () => {
     const payment = calculateMonthlyPayment(240000, 6.0, 22);
