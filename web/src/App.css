@@ -133,33 +133,47 @@ h1 {
 
 .form-row {
   display: flex;
-  gap: 0.5rem;
-  align-items: center;
+  gap: 1rem;
+  align-items: flex-end;
   flex-wrap: wrap;
 }
 
-.form-row input[type="text"],
-.form-row input[type="number"],
-.form-row input[type="date"] {
+.form-actions {
+  margin-top: 0.25rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.field-label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.field input[type="text"],
+.field input[type="number"],
+.field input[type="date"] {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  width: 130px;
+}
+
+.field select {
   padding: 0.4rem 0.6rem;
   border: 1px solid #ccc;
   border-radius: 4px;
   font-size: 0.9rem;
 }
 
-.form-row input[type="text"] {
-  width: 140px;
-}
-
-.form-row input[type="number"] {
-  width: 110px;
-}
-
-.form-row select {
-  padding: 0.4rem 0.6rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 0.9rem;
+.field .checkbox-label {
+  padding: 0.4rem 0;
 }
 
 /* ── Buttons ── */

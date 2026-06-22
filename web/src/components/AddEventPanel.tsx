@@ -21,6 +21,25 @@ function toDateString(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="field">
+      <span className="field-label">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function FrequencySelect({ value, onChange }: { value: Frequency; onChange: (v: Frequency) => void }) {
+  return (
+    <select value={value} onChange={e => onChange(e.target.value as Frequency)}>
+      <option value="daily">Daily</option>
+      <option value="weekly">Weekly</option>
+      <option value="first_of_month">Monthly</option>
+    </select>
+  );
+}
+
 export function AddEventForm({ onAdd, onCancel, startDay }: AddEventFormProps) {
   const today = toDateString(startDay);
   const [eventType, setEventType] = useState<EventType>('income');
@@ -36,14 +55,6 @@ export function AddEventForm({ onAdd, onCancel, startDay }: AddEventFormProps) {
   const [termYears, setTermYears] = useState(25);
   const [housePriceGrowth, setHousePriceGrowth] = useState(0);
   const [mortgageName, setMortgageName] = useState('home');
-
-  const frequencySelect = (
-    <select value={frequency} onChange={e => setFrequency(e.target.value as Frequency)}>
-      <option value="daily">Daily</option>
-      <option value="weekly">Weekly</option>
-      <option value="first_of_month">Monthly</option>
-    </select>
-  );
 
   const handleAdd = () => {
     const day = truncateToDay(new Date(startDate + 'T00:00:00Z'));
@@ -70,52 +81,84 @@ export function AddEventForm({ onAdd, onCancel, startDay }: AddEventFormProps) {
   return (
     <div className="add-event-form">
       <div className="form-row">
-        <select value={eventType} onChange={e => setEventType(e.target.value as EventType)}>
-          <option value="income">Recurring Income</option>
-          <option value="cost">Recurring Cost</option>
-          <option value="investment">Periodic Investment</option>
-          <option value="mortgage">Mortgage &amp; House</option>
-        </select>
-        <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+        <Field label="Event type">
+          <select value={eventType} onChange={e => setEventType(e.target.value as EventType)}>
+            <option value="income">Recurring Income</option>
+            <option value="cost">Recurring Cost</option>
+            <option value="investment">Periodic Investment</option>
+            <option value="mortgage">Mortgage &amp; House</option>
+          </select>
+        </Field>
+        <Field label="Start date">
+          <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+        </Field>
       </div>
 
       {(eventType === 'income' || eventType === 'cost') && (
         <div className="form-row">
-          <input type="text" placeholder="Name" value={name} onChange={e => setName(e.target.value)} />
-          <input type="number" placeholder="Amount" value={amount} onChange={e => setAmount(Number(e.target.value))} />
-          {frequencySelect}
-          <label className="checkbox-label">
-            <input type="checkbox" checked={inflationLinked} onChange={e => setInflationLinked(e.target.checked)} />
-            Inflation-linked
-          </label>
+          <Field label="Name">
+            <input type="text" value={name} onChange={e => setName(e.target.value)} />
+          </Field>
+          <Field label="Amount ($)">
+            <input type="number" min="0" value={amount} onChange={e => setAmount(Number(e.target.value))} />
+          </Field>
+          <Field label="Frequency">
+            <FrequencySelect value={frequency} onChange={setFrequency} />
+          </Field>
+          <Field label=" ">
+            <label className="checkbox-label">
+              <input type="checkbox" checked={inflationLinked} onChange={e => setInflationLinked(e.target.checked)} />
+              Inflation-linked
+            </label>
+          </Field>
         </div>
       )}
 
       {eventType === 'investment' && (
         <div className="form-row">
-          <input type="text" placeholder="Fund name" value={name} onChange={e => setName(e.target.value)} />
-          <input type="number" placeholder="Amount" value={amount} onChange={e => setAmount(Number(e.target.value))} />
-          {frequencySelect}
-          <input type="number" placeholder="Growth % p.a." step="0.1" value={annualGrowthPercent} onChange={e => setAnnualGrowthPercent(Number(e.target.value))} />
+          <Field label="Fund name">
+            <input type="text" value={name} onChange={e => setName(e.target.value)} />
+          </Field>
+          <Field label="Amount per period ($)">
+            <input type="number" min="0" value={amount} onChange={e => setAmount(Number(e.target.value))} />
+          </Field>
+          <Field label="Frequency">
+            <FrequencySelect value={frequency} onChange={setFrequency} />
+          </Field>
+          <Field label="Growth (% p.a.)">
+            <input type="number" step="0.1" min="0" value={annualGrowthPercent} onChange={e => setAnnualGrowthPercent(Number(e.target.value))} />
+          </Field>
         </div>
       )}
 
       {eventType === 'mortgage' && (
         <>
           <div className="form-row">
-            <input type="text" placeholder="Name (e.g. home)" value={mortgageName} onChange={e => setMortgageName(e.target.value)} />
-            <input type="number" placeholder="Principal ($)" value={principal} onChange={e => setPrincipal(Number(e.target.value))} />
-            <input type="number" placeholder="House value ($)" value={houseValue} onChange={e => setHouseValue(Number(e.target.value))} />
+            <Field label="Name">
+              <input type="text" value={mortgageName} onChange={e => setMortgageName(e.target.value)} />
+            </Field>
+            <Field label="Principal ($)">
+              <input type="number" min="0" value={principal} onChange={e => setPrincipal(Number(e.target.value))} />
+            </Field>
+            <Field label="House value ($)">
+              <input type="number" min="0" value={houseValue} onChange={e => setHouseValue(Number(e.target.value))} />
+            </Field>
           </div>
           <div className="form-row">
-            <input type="number" placeholder="Interest rate %" step="0.1" value={interestRate} onChange={e => setInterestRate(Number(e.target.value))} />
-            <input type="number" placeholder="Term (years)" value={termYears} onChange={e => setTermYears(Number(e.target.value))} />
-            <input type="number" placeholder="House price growth % p.a." step="0.1" value={housePriceGrowth} onChange={e => setHousePriceGrowth(Number(e.target.value))} />
+            <Field label="Interest rate (%)">
+              <input type="number" step="0.1" min="0" value={interestRate} onChange={e => setInterestRate(Number(e.target.value))} />
+            </Field>
+            <Field label="Term (years)">
+              <input type="number" min="1" value={termYears} onChange={e => setTermYears(Number(e.target.value))} />
+            </Field>
+            <Field label="House price growth (% p.a.)">
+              <input type="number" step="0.1" min="0" value={housePriceGrowth} onChange={e => setHousePriceGrowth(Number(e.target.value))} />
+            </Field>
           </div>
         </>
       )}
 
-      <div className="form-row">
+      <div className="form-row form-actions">
         <button type="button" className="btn-primary" onClick={handleAdd}>Add</button>
         <button type="button" className="btn-secondary" onClick={onCancel}>Cancel</button>
       </div>
