@@ -15,6 +15,7 @@ export interface CreateAccountEvent {
   readonly kind: 'create_account';
   readonly name: string;
   readonly balance: number;
+  readonly external?: boolean;
 }
 
 export interface RegisterGeneratorEvent {
@@ -64,7 +65,7 @@ export function applyEvent(world: World, event: Event): World {
       if (world.accounts.some(a => a.name === event.name)) {
         throw new Error(`account named ${event.name} exists already`);
       }
-      return { ...world, accounts: [...world.accounts, { name: event.name, balance: event.balance }] };
+      return { ...world, accounts: [...world.accounts, { name: event.name, balance: event.balance, external: event.external ?? false }] };
     }
     case 'register_generator': {
       if (world.eventGenerators.some(g => g.name === event.name)) {

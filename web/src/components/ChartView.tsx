@@ -17,6 +17,7 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, T
 interface ChartViewProps {
   snapshots: Snapshot[];
   mortgageName?: string;
+  externalAccountNames?: string[];
 }
 
 function formatDate(epochMs: number): string {
@@ -30,17 +31,22 @@ function formatDollar(value: number): string {
 }
 
 const INVESTMENT_COLORS = ['#8b5cf6', '#14b8a6', '#eab308', '#ec4899', '#06b6d4'];
+const COST_COLORS = ['#f87171', '#fb923c', '#fbbf24', '#a3e635', '#34d399'];
 
-export function ChartView({ snapshots, mortgageName }: ChartViewProps) {
+export function ChartView({ snapshots, mortgageName, externalAccountNames = [] }: ChartViewProps) {
   const labels = snapshots.map(s => formatDate(s.day));
 
   const investmentNames = snapshots.length > 0
     ? Object.keys(snapshots[0].investmentValues ?? {})
     : [];
 
+  const costAccountNames = externalAccountNames.filter(n => n !== WORLD_ACCOUNT);
+
+  const externalSet = new Set(externalAccountNames);
+
   const netWorth = snapshots.map(s => {
     const accountTotal = Object.entries(s.balances)
-      .filter(([name]) => name !== WORLD_ACCOUNT)
+      .filter(([name]) => !externalSet.has(name))
       .reduce((sum, [, bal]) => sum + bal, 0);
     const investmentTotal = Object.values(s.investmentValues ?? {}).reduce((sum, v) => sum + v, 0);
     return accountTotal + investmentTotal;
@@ -48,7 +54,7 @@ export function ChartView({ snapshots, mortgageName }: ChartViewProps) {
 
   const cash = snapshots.map(s => s.balances['cash'] ?? 0);
 
-  const datasets = [
+  const datasets: Record<string, unknown>[] = [
     {
       label: 'Net Worth',
       data: netWorth,
@@ -102,10 +108,24 @@ export function ChartView({ snapshots, mortgageName }: ChartViewProps) {
     });
   });
 
+  costAccountNames.forEach((accountName, idx) => {
+    const color = COST_COLORS[idx % COST_COLORS.length];
+    const label = accountName.replace(/-spend$/, '');
+    datasets.push({
+      label: `${label} (spent)`,
+      data: snapshots.map(s => s.balances[accountName] ?? 0),
+      borderColor: color,
+      backgroundColor: color + '20',
+      borderDash: [4, 4],
+      pointRadius: 0,
+      tension: 0,
+    });
+  });
+
   return (
     <div style={{ width: '100%', maxWidth: 900, margin: '0 auto' }}>
       <Line
-        data={{ labels, datasets }}
+        data={{ labels, datasets: datasets as never[] }}
         options={{
           responsive: true,
           plugins: {

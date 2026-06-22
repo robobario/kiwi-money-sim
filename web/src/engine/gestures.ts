@@ -6,6 +6,7 @@ export interface InitializeAccountGesture {
   readonly day: number;
   readonly accountName: string;
   readonly balance: number;
+  readonly external?: boolean;
 }
 
 export interface CreateIncomeGesture {
@@ -25,7 +26,6 @@ export interface CreateRepeatCostGesture {
   readonly frequency: Frequency;
   readonly amount: number;
   readonly fromAccount: string;
-  readonly toAccount: string;
 }
 
 export interface CreateExistingMortgageGesture {
@@ -60,7 +60,7 @@ export type Gesture =
 export function gestureEvents(gesture: Gesture): Event[] {
   switch (gesture.kind) {
     case 'initialize_account':
-      return [{ kind: 'create_account', name: gesture.accountName, balance: gesture.balance }];
+      return [{ kind: 'create_account', name: gesture.accountName, balance: gesture.balance, external: gesture.external }];
 
     case 'create_income':
       return [{
@@ -77,20 +77,25 @@ export function gestureEvents(gesture: Gesture): Event[] {
         },
       }];
 
-    case 'create_repeat_cost':
-      return [{
-        kind: 'register_generator',
-        name: gesture.name,
-        generator: {
-          kind: 'repeat_transfer',
+    case 'create_repeat_cost': {
+      const spendAccount = `${gesture.name}-spend`;
+      return [
+        { kind: 'create_account', name: spendAccount, balance: 0, external: true },
+        {
+          kind: 'register_generator',
           name: gesture.name,
-          startDay: gesture.day,
-          from: gesture.fromAccount,
-          to: gesture.toAccount,
-          amount: gesture.amount,
-          frequency: gesture.frequency,
+          generator: {
+            kind: 'repeat_transfer',
+            name: gesture.name,
+            startDay: gesture.day,
+            from: gesture.fromAccount,
+            to: spendAccount,
+            amount: gesture.amount,
+            frequency: gesture.frequency,
+          },
         },
-      }];
+      ];
+    }
 
     case 'create_periodic_investment':
       return [

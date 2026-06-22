@@ -1,5 +1,4 @@
 import type { SimulationResult } from '../engine/simulation';
-import { WORLD_ACCOUNT } from '../engine/simulation';
 import type { Gesture } from '../engine/gestures';
 import { ChartView } from './ChartView';
 import { AddEventPanel } from './AddEventPanel';
@@ -29,10 +28,11 @@ export function SimulationPage({
 }: SimulationPageProps) {
   const finalBalances = result.finalWorld.accounts;
   const finalInvestments = result.finalWorld.investments;
+  const externalAccountNames = finalBalances.filter(a => a.external).map(a => a.name);
   const cashBalance = finalBalances.find(a => a.name === 'cash')?.balance ?? 0;
   const investmentTotal = finalInvestments.reduce((sum, i) => sum + i.unitsHeld * i.indexPrice, 0);
   const netWorth = finalBalances
-    .filter(a => a.name !== WORLD_ACCOUNT)
+    .filter(a => !a.external)
     .reduce((sum, a) => sum + a.balance, 0) + investmentTotal;
 
   return (
@@ -70,7 +70,7 @@ export function SimulationPage({
         ))}
       </div>
 
-      <ChartView snapshots={result.snapshots} mortgageName={mortgageName} />
+      <ChartView snapshots={result.snapshots} mortgageName={mortgageName} externalAccountNames={externalAccountNames} />
 
       <AddEventPanel
         addedEvents={addedEvents}

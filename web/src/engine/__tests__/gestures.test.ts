@@ -36,7 +36,7 @@ describe('gestureEvents', () => {
     }
   });
 
-  it('create_repeat_cost registers a repeat_transfer generator', () => {
+  it('create_repeat_cost creates a spend account and registers a repeat_transfer generator', () => {
     const events = gestureEvents({
       kind: 'create_repeat_cost',
       day: JAN_1_2024,
@@ -44,16 +44,16 @@ describe('gestureEvents', () => {
       frequency: 'first_of_month',
       amount: 2000,
       fromAccount: 'cash',
-      toAccount: 'world',
     });
-    expect(events).toHaveLength(1);
-    expect(events[0].kind).toBe('register_generator');
-    if (events[0].kind === 'register_generator') {
-      expect(events[0].generator.kind).toBe('repeat_transfer');
-      if (events[0].generator.kind === 'repeat_transfer') {
-        expect(events[0].generator.from).toBe('cash');
-        expect(events[0].generator.to).toBe('world');
-        expect(events[0].generator.amount).toBe(2000);
+    expect(events).toHaveLength(2);
+    expect(events[0]).toEqual({ kind: 'create_account', name: 'rent-spend', balance: 0, external: true });
+    expect(events[1].kind).toBe('register_generator');
+    if (events[1].kind === 'register_generator') {
+      expect(events[1].generator.kind).toBe('repeat_transfer');
+      if (events[1].generator.kind === 'repeat_transfer') {
+        expect(events[1].generator.from).toBe('cash');
+        expect(events[1].generator.to).toBe('rent-spend');
+        expect(events[1].generator.amount).toBe(2000);
       }
     }
   });

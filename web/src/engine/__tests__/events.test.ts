@@ -56,7 +56,7 @@ describe('applyEvent', () => {
       const world = emptyWorld();
       const result = applyEvent(world, { kind: 'create_account', name: 'cash', balance: 500 });
       expect(result.accounts).toHaveLength(1);
-      expect(result.accounts[0]).toEqual({ name: 'cash', balance: 500 });
+      expect(result.accounts[0]).toEqual({ name: 'cash', balance: 500, external: false });
     });
 
     it('throws on duplicate account name', () => {

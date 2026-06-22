@@ -58,7 +58,7 @@ describe('runSimulation', () => {
       },
       {
         kind: 'create_repeat_cost', day, name: 'rent', frequency: 'first_of_month',
-        amount: 2000, fromAccount: CASH_ACCOUNT, toAccount: WORLD_ACCOUNT,
+        amount: 2000, fromAccount: CASH_ACCOUNT,
       },
     ];
     const result = runSimulation(JAN_1_2024, gestures, 1);
@@ -102,11 +102,11 @@ describe('runSimulation', () => {
         },
         {
           kind: 'create_repeat_cost', day, name: 'living-costs', frequency: 'weekly',
-          amount: 1000, fromAccount: CASH_ACCOUNT, toAccount: WORLD_ACCOUNT,
+          amount: 1000, fromAccount: CASH_ACCOUNT,
         },
         {
           kind: 'create_repeat_cost', day, name: 'annual-costs', frequency: 'first_of_month',
-          amount: 2040, fromAccount: CASH_ACCOUNT, toAccount: WORLD_ACCOUNT,
+          amount: 2040, fromAccount: CASH_ACCOUNT,
         },
         {
           kind: 'create_existing_mortgage', day, name: 'mortgage',

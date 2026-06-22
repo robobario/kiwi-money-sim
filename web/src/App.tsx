@@ -10,7 +10,7 @@ import './App.css';
 function formToGestures(values: FormValues, startDay: Date): Gesture[] {
   const day = truncateToDay(startDay);
   const gestures: Gesture[] = [
-    { kind: 'initialize_account', day, accountName: WORLD_ACCOUNT, balance: 0 },
+    { kind: 'initialize_account', day, accountName: WORLD_ACCOUNT, balance: 0, external: true },
     { kind: 'initialize_account', day, accountName: CASH_ACCOUNT, balance: values.startingCash },
     {
       kind: 'create_income', day, name: 'salary', frequency: 'first_of_month',
@@ -23,7 +23,7 @@ function formToGestures(values: FormValues, startDay: Date): Gesture[] {
       gestures.push({
         kind: 'create_repeat_cost', day, name: cost.name,
         frequency: cost.frequency, amount: cost.amount,
-        fromAccount: CASH_ACCOUNT, toAccount: WORLD_ACCOUNT,
+        fromAccount: CASH_ACCOUNT,
       });
     }
   }

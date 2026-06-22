@@ -65,7 +65,6 @@ export function AddEventPanel({ addedEvents, onAddEvent, onRemoveEvent, onRerun 
         frequency,
         amount,
         fromAccount: CASH_ACCOUNT,
-        toAccount: WORLD_ACCOUNT,
       });
     } else {
       onAddEvent({
