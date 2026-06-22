@@ -49,6 +49,11 @@ export interface UpdateInflationIndexEvent {
   readonly newIndex: number;
 }
 
+export interface ClearInvestmentEvent {
+  readonly kind: 'clear_investment';
+  readonly name: string;
+}
+
 export type Event =
   | TransferEvent
   | CreateAccountEvent
@@ -56,7 +61,8 @@ export type Event =
   | CreateInvestmentEvent
   | UpdateIndexPriceEvent
   | BuyInvestmentUnitsEvent
-  | UpdateInflationIndexEvent;
+  | UpdateInflationIndexEvent
+  | ClearInvestmentEvent;
 
 export function applyEvent(world: World, event: Event): World {
   switch (event.kind) {
@@ -111,5 +117,12 @@ export function applyEvent(world: World, event: Event): World {
         ),
       };
     }
+    case 'clear_investment':
+      return {
+        ...world,
+        investments: world.investments.map(i =>
+          i.name === event.name ? { ...i, unitsHeld: 0 } : i
+        ),
+      };
   }
 }

@@ -261,6 +261,15 @@ h1 {
   margin-top: 2rem;
 }
 
+.warning {
+  color: #b45309;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+}
+
 /* ── Misc ── */
 
 .checkbox-label {

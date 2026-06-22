@@ -24,6 +24,8 @@ export function SimulationPage({ result, mortgageName }: SimulationPageProps) {
   const houseInvestment = houseInvestmentKey ? finalInvestments.find(i => i.name === houseInvestmentKey) : undefined;
   const houseValue = houseInvestment ? houseInvestment.unitsHeld * houseInvestment.indexPrice : 0;
 
+  const firstNegativeCash = result.snapshots.find(s => (s.balances['cash'] ?? 0) < 0);
+
   return (
     <div className="simulation-page">
       <div className="summary-stats">
@@ -61,6 +63,12 @@ export function SimulationPage({ result, mortgageName }: SimulationPageProps) {
       </div>
 
       <ChartView snapshots={result.snapshots} mortgageName={mortgageName} externalAccountNames={externalAccountNames} />
+
+      {firstNegativeCash && (
+        <p className="warning">
+          Warning: cash went negative — first occurrence on {new Date(firstNegativeCash.day).toISOString().slice(0, 10)} ({formatDollar(firstNegativeCash.balances['cash'] ?? 0)}).
+        </p>
+      )}
     </div>
   );
 }

@@ -168,6 +168,137 @@ describe('inflation-linked gestures', () => {
   });
 });
 
+describe('buy_house gesture', () => {
+  const events = gestureEvents({
+    kind: 'buy_house',
+    day: JAN_1_2024,
+    name: 'home',
+    housePrice: 700000,
+    deposit: 100000,
+    annualRatePercent: 6.0,
+    termYears: 25,
+    paymentFromAccount: 'cash',
+  });
+
+  it('transfers deposit from cash to world', () => {
+    expect(events[0]).toEqual({ kind: 'transfer', from: 'cash', to: 'world', amount: 100000 });
+  });
+
+  it('creates mortgage account at derived principal', () => {
+    expect(events[1]).toEqual({ kind: 'create_account', name: 'home-mortgage', balance: -600000 });
+  });
+
+  it('creates house investment at full purchase price', () => {
+    expect(events[2]).toEqual({ kind: 'create_investment', name: 'home-house', initialPrice: 1.0, initialUnits: 700000 });
+  });
+
+  it('registers interest and repayment generators', () => {
+    expect(events[3]).toMatchObject({ kind: 'register_generator', name: 'home-mortgage-interest-deduction' });
+    expect(events[4]).toMatchObject({ kind: 'register_generator', name: 'home-mortgage-repayment' });
+  });
+
+  it('calculates monthly payment on principal only', () => {
+    if (events[4].kind === 'register_generator' && events[4].generator.kind === 'mortgage_repayment') {
+      expect(events[4].generator.amount).toBeCloseTo(calculateMonthlyPayment(600000, 6.0, 25), 0);
+    }
+  });
+});
+
+describe('sell_house gesture', () => {
+  const world = {
+    currentDay: JAN_1_2024,
+    accounts: [
+      { name: 'cash', balance: 10000 },
+      { name: 'home-mortgage', balance: -150000 },
+    ],
+    eventGenerators: [],
+    eventHistory: [],
+    investments: [
+      { name: 'home-house', indexPrice: 1.05, unitsHeld: 700000 },
+    ],
+    inflationIndex: 1,
+  };
+
+  describe('with market price and partial mortgage payoff', () => {
+    const events = gestureEvents({
+      kind: 'sell_house',
+      day: JAN_1_2024,
+      houseName: 'home',
+      agentFeePercent: 2,
+      fixedCosts: 2000,
+    }, world);
+
+    it('creates proceeds account at market price', () => {
+      expect(events[0]).toEqual({ kind: 'create_account', name: 'home-sale-proceeds', balance: 735000, external: true });
+    });
+
+    it('creates legal fee and agent fee accounts', () => {
+      expect(events[1]).toEqual({ kind: 'create_account', name: 'home-sale-legal-fee', balance: 0, external: true });
+      expect(events[2]).toEqual({ kind: 'create_account', name: 'home-sale-agent-fee', balance: 0, external: true });
+    });
+
+    it('transfers legal fee from proceeds', () => {
+      const transfer = events.find(e => e.kind === 'transfer' && e.kind === 'transfer' && (e as { to: string }).to === 'home-sale-legal-fee');
+      expect(transfer).toMatchObject({ kind: 'transfer', from: 'home-sale-proceeds', to: 'home-sale-legal-fee', amount: 2000 });
+    });
+
+    it('transfers agent fee (2% of 735000 = 14700) from proceeds', () => {
+      const transfer = events.find(e => e.kind === 'transfer' && (e as { to: string }).to === 'home-sale-agent-fee');
+      expect(transfer).toMatchObject({ kind: 'transfer', from: 'home-sale-proceeds', to: 'home-sale-agent-fee', amount: 14700 });
+    });
+
+    it('pays off full mortgage from proceeds', () => {
+      const transfer = events.find(e => e.kind === 'transfer' && (e as { to: string }).to === 'home-mortgage');
+      expect(transfer).toMatchObject({ kind: 'transfer', from: 'home-sale-proceeds', to: 'home-mortgage', amount: 150000 });
+    });
+
+    it('transfers remainder to cash', () => {
+      // 735000 - 2000 - 14700 - 150000 = 568300
+      const transfer = events.find(e => e.kind === 'transfer' && (e as { to: string }).to === 'cash');
+      expect(transfer).toMatchObject({ kind: 'transfer', from: 'home-sale-proceeds', to: 'cash', amount: 568300 });
+    });
+
+    it('clears the house investment', () => {
+      expect(events[events.length - 1]).toEqual({ kind: 'clear_investment', name: 'home-house' });
+    });
+  });
+
+  it('uses salePriceOverride when provided', () => {
+    const events = gestureEvents({
+      kind: 'sell_house',
+      day: JAN_1_2024,
+      houseName: 'home',
+      salePriceOverride: 800000,
+      agentFeePercent: 0,
+      fixedCosts: 0,
+    }, world);
+    expect(events[0]).toMatchObject({ kind: 'create_account', name: 'home-sale-proceeds', balance: 800000 });
+  });
+
+  it('funds shortfall from cash when sale is underwater', () => {
+    const worldWithBigMortgage = {
+      ...world,
+      accounts: [
+        { name: 'cash', balance: 50000 },
+        { name: 'home-mortgage', balance: -600000 },
+      ],
+    };
+    const events = gestureEvents({
+      kind: 'sell_house',
+      day: JAN_1_2024,
+      houseName: 'home',
+      salePriceOverride: 500000,
+      agentFeePercent: 0,
+      fixedCosts: 0,
+    }, worldWithBigMortgage);
+    // proceeds cover 500k, shortfall of 100k comes from cash
+    const proceedsTransfer = events.find(e => e.kind === 'transfer' && (e as { from: string }).from === 'home-sale-proceeds' && (e as { to: string }).to === 'home-mortgage');
+    expect(proceedsTransfer).toMatchObject({ amount: 500000 });
+    const cashTransfer = events.find(e => e.kind === 'transfer' && (e as { from: string }).from === 'cash' && (e as { to: string }).to === 'home-mortgage');
+    expect(cashTransfer).toMatchObject({ amount: 100000 });
+  });
+});
+
 describe('calculateMonthlyPayment', () => {
   it('calculates correctly for 240k at 6% over 22 years', () => {
     const payment = calculateMonthlyPayment(240000, 6.0, 22);

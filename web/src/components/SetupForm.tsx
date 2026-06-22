@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { GlobalConfig } from '../types/form';
-import type { Gesture } from '../engine/gestures';
+import type { Gesture, CreateExistingMortgageGesture, BuyHouseGesture } from '../engine/gestures';
 import { AddEventForm } from './AddEventPanel';
 
 interface SetupTabProps {
@@ -35,6 +35,10 @@ function gestureLabel(g: Gesture): string {
       return `$${g.periodAmount.toLocaleString()}${formatFreq(g.frequency)} → ${g.name} at ${g.annualGrowthPercent}% p.a.`;
     case 'create_existing_mortgage':
       return `Mortgage: $${g.principal.toLocaleString()} at ${g.annualRatePercent}% / ${g.termYears}yr, house $${g.assetValue.toLocaleString()}`;
+    case 'buy_house':
+      return `Buy ${g.name}: $${g.housePrice.toLocaleString()}, $${g.deposit.toLocaleString()} deposit, $${(g.housePrice - g.deposit).toLocaleString()} mortgage at ${g.annualRatePercent}% / ${g.termYears}yr`;
+    case 'sell_house':
+      return `Sell ${g.houseName}: ${g.salePriceOverride !== undefined ? `$${g.salePriceOverride.toLocaleString()} fixed` : 'market price'}, ${g.agentFeePercent}% agent, $${g.fixedCosts.toLocaleString()} legal`;
     default:
       return g.kind;
   }
@@ -54,6 +58,10 @@ export function SetupTab({ config, onConfigChange, timeline, onAddEvent, onRemov
   const sortedEntries = timeline
     .map((gesture, originalIndex) => ({ gesture, originalIndex }))
     .sort((a, b) => a.gesture.day - b.gesture.day);
+
+  const availableHouses = timeline
+    .filter((g): g is CreateExistingMortgageGesture | BuyHouseGesture => g.kind === 'create_existing_mortgage' || g.kind === 'buy_house')
+    .map(g => g.name);
 
   const endDate = new Date(startDay);
   endDate.setUTCFullYear(endDate.getUTCFullYear() + config.simulationYears);
@@ -92,7 +100,7 @@ export function SetupTab({ config, onConfigChange, timeline, onAddEvent, onRemov
         ))}
 
         {showAddForm ? (
-          <AddEventForm onAdd={handleAdd} startDay={startDay} onCancel={() => setShowAddForm(false)} />
+          <AddEventForm onAdd={handleAdd} startDay={startDay} onCancel={() => setShowAddForm(false)} availableHouses={availableHouses} />
         ) : (
           <button type="button" className="btn-secondary timeline-add-btn" onClick={() => setShowAddForm(true)}>
             + Add Event

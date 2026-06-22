@@ -101,4 +101,19 @@ describe('applyEvent', () => {
       ).toThrow('event generator named salary exists already');
     });
   });
+
+  describe('clear_investment', () => {
+    it('sets unitsHeld to 0', () => {
+      const world: World = {
+        ...emptyWorld(),
+        investments: [
+          { name: 'home-house', indexPrice: 1.05, unitsHeld: 700000 },
+          { name: 'other', indexPrice: 1.0, unitsHeld: 100 },
+        ],
+      };
+      const result = applyEvent(world, { kind: 'clear_investment', name: 'home-house' });
+      expect(result.investments.find(i => i.name === 'home-house')?.unitsHeld).toBe(0);
+      expect(result.investments.find(i => i.name === 'other')?.unitsHeld).toBe(100);
+    });
+  });
 });

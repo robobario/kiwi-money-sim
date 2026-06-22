@@ -60,13 +60,36 @@ export interface CreatePeriodicInvestmentGesture {
   readonly fromAccount: string;
 }
 
+export interface BuyHouseGesture {
+  readonly kind: 'buy_house';
+  readonly day: number;
+  readonly name: string;
+  readonly housePrice: number;
+  readonly deposit: number;
+  readonly annualRatePercent: number;
+  readonly termYears: number;
+  readonly paymentFromAccount: string;
+  readonly annualHousePriceGrowthPercent?: number;
+}
+
+export interface SellHouseGesture {
+  readonly kind: 'sell_house';
+  readonly day: number;
+  readonly houseName: string;
+  readonly salePriceOverride?: number;
+  readonly agentFeePercent: number;
+  readonly fixedCosts: number;
+}
+
 export type Gesture =
   | InitializeAccountGesture
   | CreateIncomeGesture
   | CreateRepeatCostGesture
   | CreateExistingMortgageGesture
+  | BuyHouseGesture
   | CreatePeriodicInvestmentGesture
-  | CreateInflationGesture;
+  | CreateInflationGesture
+  | SellHouseGesture;
 
 export function gestureEvents(gesture: Gesture, world?: World): Event[] {
   const baseInflationIndex = world?.inflationIndex ?? 1;
@@ -151,6 +174,102 @@ export function gestureEvents(gesture: Gesture, world?: World): Event[] {
           },
         },
       ];
+
+    case 'buy_house': {
+      const principal = gesture.housePrice - gesture.deposit;
+      const mortgageAccount = `${gesture.name}-mortgage`;
+      const houseInvestment = `${gesture.name}-house`;
+      const payment = calculateMonthlyPayment(principal, gesture.annualRatePercent, gesture.termYears);
+      const events: Event[] = [
+        { kind: 'transfer', from: gesture.paymentFromAccount, to: 'world', amount: gesture.deposit },
+        { kind: 'create_account', name: mortgageAccount, balance: -principal },
+        { kind: 'create_investment', name: houseInvestment, initialPrice: 1.0, initialUnits: gesture.housePrice },
+        {
+          kind: 'register_generator',
+          name: `${mortgageAccount}-interest-deduction`,
+          generator: {
+            kind: 'interest_payment',
+            name: `${mortgageAccount}-interest-deduction`,
+            startDay: gesture.day,
+            mortgageAccount,
+            interestSinkAccount: 'world',
+            annualRatePercent: gesture.annualRatePercent,
+            frequency: 'first_of_month',
+          },
+        },
+        {
+          kind: 'register_generator',
+          name: `${mortgageAccount}-repayment`,
+          generator: {
+            kind: 'mortgage_repayment',
+            name: `${mortgageAccount}-repayment`,
+            startDay: gesture.day,
+            mortgageAccount,
+            paymentFromAccount: gesture.paymentFromAccount,
+            amount: payment,
+            frequency: 'first_of_month',
+          },
+        },
+      ];
+      if (gesture.annualHousePriceGrowthPercent && gesture.annualHousePriceGrowthPercent > 0) {
+        events.push({
+          kind: 'register_generator',
+          name: `${houseInvestment}-appreciation`,
+          generator: {
+            kind: 'index_appreciation',
+            name: `${houseInvestment}-appreciation`,
+            investmentName: houseInvestment,
+            annualGrowthPercent: gesture.annualHousePriceGrowthPercent,
+          },
+        });
+      }
+      return events;
+    }
+
+    case 'sell_house': {
+      const houseInvestmentName = `${gesture.houseName}-house`;
+      const mortgageAccountName = `${gesture.houseName}-mortgage`;
+
+      const houseInvestment = world?.investments.find(i => i.name === houseInvestmentName);
+      const marketPrice = houseInvestment ? houseInvestment.unitsHeld * houseInvestment.indexPrice : 0;
+      const salePrice = gesture.salePriceOverride ?? marketPrice;
+
+      const agentFee = roundCents(salePrice * gesture.agentFeePercent / 100);
+      const netProceeds = salePrice - agentFee - gesture.fixedCosts;
+
+      const mortgageBalance = world?.accounts.find(a => a.name === mortgageAccountName)?.balance ?? 0;
+      const mortgagePayoff = mortgageBalance < 0 ? -mortgageBalance : 0;
+      const proceedsToMortgage = Math.min(netProceeds, mortgagePayoff);
+      const cashToMortgage = Math.max(0, mortgagePayoff - netProceeds);
+      const cashFromSale = Math.max(0, netProceeds - mortgagePayoff);
+
+      const proceedsAccount = `${gesture.houseName}-sale-proceeds`;
+      const legalFeeAccount = `${gesture.houseName}-sale-legal-fee`;
+      const agentFeeAccount = `${gesture.houseName}-sale-agent-fee`;
+
+      const events: Event[] = [
+        { kind: 'create_account', name: proceedsAccount, balance: salePrice, external: true },
+        { kind: 'create_account', name: legalFeeAccount, balance: 0, external: true },
+        { kind: 'create_account', name: agentFeeAccount, balance: 0, external: true },
+      ];
+      if (gesture.fixedCosts > 0) {
+        events.push({ kind: 'transfer', from: proceedsAccount, to: legalFeeAccount, amount: gesture.fixedCosts });
+      }
+      if (agentFee > 0) {
+        events.push({ kind: 'transfer', from: proceedsAccount, to: agentFeeAccount, amount: agentFee });
+      }
+      if (proceedsToMortgage > 0) {
+        events.push({ kind: 'transfer', from: proceedsAccount, to: mortgageAccountName, amount: proceedsToMortgage });
+      }
+      if (cashToMortgage > 0) {
+        events.push({ kind: 'transfer', from: 'cash', to: mortgageAccountName, amount: cashToMortgage });
+      }
+      if (cashFromSale > 0) {
+        events.push({ kind: 'transfer', from: proceedsAccount, to: 'cash', amount: cashFromSale });
+      }
+      events.push({ kind: 'clear_investment', name: houseInvestmentName });
+      return events;
+    }
 
     case 'create_existing_mortgage': {
       const mortgageAccount = `${gesture.name}-mortgage`;

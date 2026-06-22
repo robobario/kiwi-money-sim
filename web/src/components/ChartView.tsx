@@ -42,7 +42,9 @@ export function ChartView({ snapshots, mortgageName, externalAccountNames = [] }
     ? Object.keys(snapshots[0].investmentValues ?? {}).filter(n => n !== houseInvestmentKey)
     : [];
 
-  const costAccountNames = externalAccountNames.filter(n => n !== WORLD_ACCOUNT && n !== INCOME_ACCOUNT);
+  const costAccountNames = externalAccountNames.filter(n =>
+    n !== WORLD_ACCOUNT && n !== INCOME_ACCOUNT && !n.endsWith('-sale-proceeds')
+  );
   const hasIncomeAccount = externalAccountNames.includes(INCOME_ACCOUNT);
 
   const externalSet = new Set(externalAccountNames);
@@ -113,7 +115,10 @@ export function ChartView({ snapshots, mortgageName, externalAccountNames = [] }
 
   costAccountNames.forEach((accountName, idx) => {
     const color = COST_COLORS[idx % COST_COLORS.length];
-    const label = accountName.replace(/-spend$/, '');
+    const label = accountName
+      .replace(/-spend$/, '')
+      .replace(/-sale-legal-fee$/, ' legal fee')
+      .replace(/-sale-agent-fee$/, ' agent fee');
     datasets.push({
       label: `${label} (spent)`,
       data: snapshots.map(s => s.balances[accountName] ?? 0),
