@@ -248,7 +248,6 @@ describe('IndexAppreciationGenerator', () => {
 
   it('compounding over 365 days yields approximately 5% growth', () => {
     let price = 1.0;
-    const dailyMultiplier = Math.pow(1.05, 1 / 365);
     for (let i = 0; i < 365; i++) {
       const world = worldAt(JAN_1_2024, [], [{ name: 'fund', indexPrice: price, unitsHeld: 0 }]);
       const events = generate(appreciationGen, world);

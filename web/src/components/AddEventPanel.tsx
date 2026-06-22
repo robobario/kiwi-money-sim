@@ -10,7 +10,7 @@ interface AddEventPanelProps {
   onRerun: () => void;
 }
 
-type EventType = 'income' | 'cost';
+type EventType = 'income' | 'cost' | 'investment';
 
 function truncateToDay(date: Date): number {
   const d = new Date(date);
@@ -28,6 +28,8 @@ function gestureLabel(g: Gesture): string {
       return `Income: $${g.amount} ${g.frequency} "${g.name}"`;
     case 'create_repeat_cost':
       return `Cost: $${g.amount} ${g.frequency} "${g.name}"`;
+    case 'create_periodic_investment':
+      return `Investment: $${g.periodAmount} ${g.frequency} into "${g.name}" at ${g.annualGrowthPercent}% p.a.`;
     default:
       return g.kind;
   }
@@ -38,6 +40,7 @@ export function AddEventPanel({ addedEvents, onAddEvent, onRemoveEvent, onRerun 
   const [name, setName] = useState('');
   const [amount, setAmount] = useState(0);
   const [frequency, setFrequency] = useState<Frequency>('first_of_month');
+  const [annualGrowthPercent, setAnnualGrowthPercent] = useState(5);
   const [startDate, setStartDate] = useState('');
 
   const handleAdd = () => {
@@ -54,7 +57,7 @@ export function AddEventPanel({ addedEvents, onAddEvent, onRemoveEvent, onRerun 
         toAccount: CASH_ACCOUNT,
         fromAccount: WORLD_ACCOUNT,
       });
-    } else {
+    } else if (eventType === 'cost') {
       onAddEvent({
         kind: 'create_repeat_cost',
         day,
@@ -63,6 +66,16 @@ export function AddEventPanel({ addedEvents, onAddEvent, onRemoveEvent, onRerun 
         amount,
         fromAccount: CASH_ACCOUNT,
         toAccount: WORLD_ACCOUNT,
+      });
+    } else {
+      onAddEvent({
+        kind: 'create_periodic_investment',
+        day,
+        name,
+        frequency,
+        periodAmount: amount,
+        annualGrowthPercent,
+        fromAccount: CASH_ACCOUNT,
       });
     }
 
@@ -78,6 +91,7 @@ export function AddEventPanel({ addedEvents, onAddEvent, onRemoveEvent, onRerun 
         <select value={eventType} onChange={e => setEventType(e.target.value as EventType)}>
           <option value="income">Recurring Income</option>
           <option value="cost">Recurring Cost</option>
+          <option value="investment">Investment</option>
         </select>
         <input type="text" placeholder="Name" value={name} onChange={e => setName(e.target.value)} />
         <input type="number" placeholder="Amount" value={amount} onChange={e => setAmount(Number(e.target.value))} />
@@ -86,6 +100,15 @@ export function AddEventPanel({ addedEvents, onAddEvent, onRemoveEvent, onRerun 
           <option value="weekly">Weekly</option>
           <option value="first_of_month">Monthly</option>
         </select>
+        {eventType === 'investment' && (
+          <input
+            type="number"
+            placeholder="Growth % p.a."
+            step="0.1"
+            value={annualGrowthPercent}
+            onChange={e => setAnnualGrowthPercent(Number(e.target.value))}
+          />
+        )}
         <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
         <button type="button" onClick={handleAdd} className="btn-secondary">Add</button>
       </div>
