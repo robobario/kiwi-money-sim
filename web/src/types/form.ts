@@ -24,6 +24,7 @@ export interface FormValues {
   readonly hasMortgage: boolean;
   readonly mortgagePrincipal: number;
   readonly houseValue: number;
+  readonly housePriceGrowthPercent: number;
   readonly interestRate: number;
   readonly termYears: number;
   readonly simulationYears: number;
@@ -39,6 +40,7 @@ export const DEFAULT_FORM_VALUES: FormValues = {
   hasMortgage: false,
   mortgagePrincipal: 240000,
   houseValue: 700000,
+  housePriceGrowthPercent: 0,
   interestRate: 6.0,
   termYears: 22,
   simulationYears: 30,

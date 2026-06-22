@@ -79,8 +79,8 @@ describe('gestureEvents', () => {
       expect(events[0]).toEqual({ kind: 'create_account', name: 'home-mortgage', balance: -240000 });
     });
 
-    it('creates house asset account', () => {
-      expect(events[1]).toEqual({ kind: 'create_account', name: 'home-house', balance: 700000 });
+    it('creates house investment', () => {
+      expect(events[1]).toEqual({ kind: 'create_investment', name: 'home-house', initialPrice: 1.0, initialUnits: 700000 });
     });
 
     it('registers interest generator', () => {

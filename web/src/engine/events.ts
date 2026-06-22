@@ -28,6 +28,7 @@ export interface CreateInvestmentEvent {
   readonly kind: 'create_investment';
   readonly name: string;
   readonly initialPrice: number;
+  readonly initialUnits?: number;
 }
 
 export interface UpdateIndexPriceEvent {
@@ -83,7 +84,7 @@ export function applyEvent(world: World, event: Event): World {
       if (world.investments.some(i => i.name === event.name)) {
         throw new Error(`investment named ${event.name} exists already`);
       }
-      const investment: Investment = { name: event.name, indexPrice: event.initialPrice, unitsHeld: 0 };
+      const investment: Investment = { name: event.name, indexPrice: event.initialPrice, unitsHeld: event.initialUnits ?? 0 };
       return { ...world, investments: [...world.investments, investment] };
     }
     case 'update_index_price': {

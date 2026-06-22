@@ -47,6 +47,7 @@ export interface CreateExistingMortgageGesture {
   readonly interestFrequency: Frequency;
   readonly termYears: number;
   readonly paymentFromAccount: string;
+  readonly annualHousePriceGrowthPercent?: number;
 }
 
 export interface CreatePeriodicInvestmentGesture {
@@ -153,10 +154,11 @@ export function gestureEvents(gesture: Gesture, world?: World): Event[] {
 
     case 'create_existing_mortgage': {
       const mortgageAccount = `${gesture.name}-mortgage`;
+      const houseInvestment = `${gesture.name}-house`;
       const payment = calculateMonthlyPayment(gesture.principal, gesture.annualRatePercent, gesture.termYears);
-      return [
+      const events: Event[] = [
         { kind: 'create_account', name: mortgageAccount, balance: -gesture.principal },
-        { kind: 'create_account', name: `${gesture.name}-house`, balance: gesture.assetValue },
+        { kind: 'create_investment', name: houseInvestment, initialPrice: 1.0, initialUnits: gesture.assetValue },
         {
           kind: 'register_generator',
           name: `${mortgageAccount}-interest-deduction`,
@@ -184,6 +186,19 @@ export function gestureEvents(gesture: Gesture, world?: World): Event[] {
           },
         },
       ];
+      if (gesture.annualHousePriceGrowthPercent && gesture.annualHousePriceGrowthPercent > 0) {
+        events.push({
+          kind: 'register_generator',
+          name: `${houseInvestment}-appreciation`,
+          generator: {
+            kind: 'index_appreciation',
+            name: `${houseInvestment}-appreciation`,
+            investmentName: houseInvestment,
+            annualGrowthPercent: gesture.annualHousePriceGrowthPercent,
+          },
+        });
+      }
+      return events;
     }
   }
 }

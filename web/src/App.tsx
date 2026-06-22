@@ -41,6 +41,7 @@ function formToGestures(values: FormValues, startDay: Date): Gesture[] {
       principal: values.mortgagePrincipal, assetValue: values.houseValue,
       annualRatePercent: values.interestRate, interestFrequency: 'first_of_month',
       termYears: values.termYears, paymentFromAccount: CASH_ACCOUNT,
+      annualHousePriceGrowthPercent: values.housePriceGrowthPercent,
     });
   }
 

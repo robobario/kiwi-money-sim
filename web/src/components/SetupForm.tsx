@@ -186,6 +186,10 @@ export function SetupForm({ onSubmit, initialValues }: SetupFormProps) {
               <input type="number" value={values.houseValue} onChange={e => update('houseValue', Number(e.target.value))} />
             </label>
             <label>
+              House Price Growth (% p.a.)
+              <input type="number" step="0.1" min="0" value={values.housePriceGrowthPercent} onChange={e => update('housePriceGrowthPercent', Number(e.target.value))} />
+            </label>
+            <label>
               Interest Rate (% p.a.)
               <input type="number" step="0.1" value={values.interestRate} onChange={e => update('interestRate', Number(e.target.value))} />
             </label>

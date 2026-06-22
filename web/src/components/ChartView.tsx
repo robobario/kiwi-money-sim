@@ -37,8 +37,9 @@ const INCOME_COLOR = '#60a5fa';
 export function ChartView({ snapshots, mortgageName, externalAccountNames = [] }: ChartViewProps) {
   const labels = snapshots.map(s => formatDate(s.day));
 
+  const houseInvestmentKey = mortgageName ? `${mortgageName}-house` : undefined;
   const investmentNames = snapshots.length > 0
-    ? Object.keys(snapshots[0].investmentValues ?? {})
+    ? Object.keys(snapshots[0].investmentValues ?? {}).filter(n => n !== houseInvestmentKey)
     : [];
 
   const costAccountNames = externalAccountNames.filter(n => n !== WORLD_ACCOUNT && n !== INCOME_ACCOUNT);
@@ -90,7 +91,7 @@ export function ChartView({ snapshots, mortgageName, externalAccountNames = [] }
 
     datasets.push({
       label: 'House Equity',
-      data: snapshots.map(s => (s.balances[houseKey] ?? 0) + (s.balances[mortgageKey] ?? 0)),
+      data: snapshots.map(s => ((s.investmentValues ?? {})[houseKey] ?? 0) + (s.balances[mortgageKey] ?? 0)),
       borderColor: '#f97316',
       backgroundColor: '#f9731620',
       pointRadius: 0,

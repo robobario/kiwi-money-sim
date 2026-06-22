@@ -122,10 +122,10 @@ describe('runSimulation', () => {
 
       const cash = accounts.find(a => a.name === CASH_ACCOUNT)!.balance;
       const mortgage = accounts.find(a => a.name === 'mortgage-mortgage')!.balance;
-      const house = accounts.find(a => a.name === 'mortgage-house')!.balance;
+      const houseInv = result.finalWorld.investments.find(i => i.name === 'mortgage-house')!;
 
-      // House value is static
-      expect(house).toBe(700000);
+      // House value is static (no appreciation configured)
+      expect(houseInv.unitsHeld * houseInv.indexPrice).toBeCloseTo(700000, 0);
 
       // Mortgage should have decreased (less negative) due to payments exceeding interest
       expect(mortgage).toBeGreaterThan(-240000);
@@ -232,6 +232,45 @@ describe('runSimulation', () => {
       const result = runSimulation(JAN_1_2024, gestures, 10);
       const cash = result.finalWorld.accounts.find(a => a.name === CASH_ACCOUNT)!.balance;
       expect(cash).toBeGreaterThan(0);
+    });
+  });
+
+  describe('house price appreciation', () => {
+    it('house value grows at the configured rate', () => {
+      const day = JAN_1_2024.getTime();
+      const gestures: Gesture[] = [
+        { kind: 'initialize_account', day, accountName: WORLD_ACCOUNT, balance: 0 },
+        { kind: 'initialize_account', day, accountName: CASH_ACCOUNT, balance: 1_000_000 },
+        {
+          kind: 'create_existing_mortgage', day, name: 'home',
+          principal: 240000, assetValue: 700000, annualRatePercent: 6.0,
+          interestFrequency: 'first_of_month', termYears: 22, paymentFromAccount: CASH_ACCOUNT,
+          annualHousePriceGrowthPercent: 3,
+        },
+      ];
+
+      const result = runSimulation(JAN_1_2024, gestures, 10);
+      const house = result.finalWorld.investments.find(i => i.name === 'home-house')!;
+      // After 10 years at 3%: 700000 × 1.03^10 ≈ 940,462
+      expect(house.unitsHeld * house.indexPrice).toBeGreaterThan(900_000);
+      expect(house.unitsHeld * house.indexPrice).toBeLessThan(1_000_000);
+    });
+
+    it('house value stays constant with zero growth rate', () => {
+      const day = JAN_1_2024.getTime();
+      const gestures: Gesture[] = [
+        { kind: 'initialize_account', day, accountName: WORLD_ACCOUNT, balance: 0 },
+        { kind: 'initialize_account', day, accountName: CASH_ACCOUNT, balance: 1_000_000 },
+        {
+          kind: 'create_existing_mortgage', day, name: 'home',
+          principal: 240000, assetValue: 700000, annualRatePercent: 6.0,
+          interestFrequency: 'first_of_month', termYears: 22, paymentFromAccount: CASH_ACCOUNT,
+        },
+      ];
+
+      const result = runSimulation(JAN_1_2024, gestures, 10);
+      const house = result.finalWorld.investments.find(i => i.name === 'home-house')!;
+      expect(house.unitsHeld * house.indexPrice).toBeCloseTo(700000, 0);
     });
   });
 
