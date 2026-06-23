@@ -299,6 +299,98 @@ describe('sell_house gesture', () => {
   });
 });
 
+describe('start_drawdown gesture', () => {
+  it('registers a drawdown generator named after the investment', () => {
+    const events = gestureEvents({
+      kind: 'start_drawdown',
+      day: JAN_1_2024,
+      investmentName: 'my-fund',
+      mode: 'percent',
+      annualPercent: 4,
+      annualAmount: 0,
+      inflationLinked: false,
+    });
+    expect(events).toHaveLength(1);
+    expect(events[0].kind).toBe('register_generator');
+    if (events[0].kind === 'register_generator') {
+      expect(events[0].name).toBe('my-fund-drawdown');
+      expect(events[0].generator.kind).toBe('drawdown');
+    }
+  });
+
+  it('passes percent mode through to the generator', () => {
+    const events = gestureEvents({
+      kind: 'start_drawdown',
+      day: JAN_1_2024,
+      investmentName: 'my-fund',
+      mode: 'percent',
+      annualPercent: 4,
+      annualAmount: 0,
+      inflationLinked: false,
+    });
+    if (events[0].kind === 'register_generator' && events[0].generator.kind === 'drawdown') {
+      expect(events[0].generator.mode).toBe('percent');
+      expect(events[0].generator.annualPercent).toBe(4);
+    }
+  });
+
+  it('passes fixed amount and inflation-linking through to the generator', () => {
+    const world = {
+      currentDay: JAN_1_2024,
+      accounts: [],
+      eventGenerators: [],
+      eventHistory: [],
+      investments: [],
+      inflationIndex: 1.3,
+    };
+    const events = gestureEvents({
+      kind: 'start_drawdown',
+      day: JAN_1_2024,
+      investmentName: 'my-fund',
+      mode: 'fixed',
+      annualPercent: 0,
+      annualAmount: 12000,
+      inflationLinked: true,
+    }, world);
+    if (events[0].kind === 'register_generator' && events[0].generator.kind === 'drawdown') {
+      expect(events[0].generator.mode).toBe('fixed');
+      expect(events[0].generator.annualAmount).toBe(12000);
+      expect(events[0].generator.inflationLinked).toBe(true);
+      expect(events[0].generator.baseInflationIndex).toBe(1.3);
+    }
+  });
+
+  it('defaults baseInflationIndex to 1 when no world is provided', () => {
+    const events = gestureEvents({
+      kind: 'start_drawdown',
+      day: JAN_1_2024,
+      investmentName: 'my-fund',
+      mode: 'fixed',
+      annualPercent: 0,
+      annualAmount: 12000,
+      inflationLinked: true,
+    });
+    if (events[0].kind === 'register_generator' && events[0].generator.kind === 'drawdown') {
+      expect(events[0].generator.baseInflationIndex).toBe(1);
+    }
+  });
+
+  it('routes sell events to the cash account', () => {
+    const events = gestureEvents({
+      kind: 'start_drawdown',
+      day: JAN_1_2024,
+      investmentName: 'my-fund',
+      mode: 'percent',
+      annualPercent: 4,
+      annualAmount: 0,
+      inflationLinked: false,
+    });
+    if (events[0].kind === 'register_generator' && events[0].generator.kind === 'drawdown') {
+      expect(events[0].generator.toAccount).toBe('cash');
+    }
+  });
+});
+
 describe('calculateMonthlyPayment', () => {
   it('calculates correctly for 240k at 6% over 22 years', () => {
     const payment = calculateMonthlyPayment(240000, 6.0, 22);

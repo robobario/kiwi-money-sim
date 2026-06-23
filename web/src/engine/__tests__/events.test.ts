@@ -119,4 +119,38 @@ describe('applyEvent', () => {
       expect(result.investments.find(i => i.name === 'other')?.unitsHeld).toBe(100);
     });
   });
+
+  describe('sell_investment_units', () => {
+    const world: World = {
+      ...emptyWorld(),
+      investments: [
+        { name: 'fund', indexPrice: 2.0, unitsHeld: 100 },
+        { name: 'other', indexPrice: 1.0, unitsHeld: 200 },
+      ],
+      accounts: [{ name: 'cash', balance: 0, external: false }],
+    };
+
+    it('removes the correct number of units and credits cash', () => {
+      // $50 at price 2.0 = 25 units removed
+      const result = applyEvent(world, { kind: 'sell_investment_units', investmentName: 'fund', cashAmount: 50, toAccount: 'cash' });
+      expect(result.investments.find(i => i.name === 'fund')?.unitsHeld).toBeCloseTo(75, 5);
+      expect(result.accounts.find(a => a.name === 'cash')?.balance).toBe(50);
+    });
+
+    it('does not reduce units below zero', () => {
+      const tinyWorld: World = {
+        ...emptyWorld(),
+        investments: [{ name: 'fund', indexPrice: 2.0, unitsHeld: 10 }],
+        accounts: [{ name: 'cash', balance: 0, external: false }],
+      };
+      // $100 would require 50 units but only 10 exist
+      const result = applyEvent(tinyWorld, { kind: 'sell_investment_units', investmentName: 'fund', cashAmount: 100, toAccount: 'cash' });
+      expect(result.investments.find(i => i.name === 'fund')?.unitsHeld).toBe(0);
+    });
+
+    it('does not affect other investments', () => {
+      const result = applyEvent(world, { kind: 'sell_investment_units', investmentName: 'fund', cashAmount: 50, toAccount: 'cash' });
+      expect(result.investments.find(i => i.name === 'other')?.unitsHeld).toBe(200);
+    });
+  });
 });

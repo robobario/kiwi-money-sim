@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { generate } from '../generators';
-import type { RepeatTransferGenerator, InterestPaymentGenerator, MortgageRepaymentGenerator, IndexAppreciationGenerator, PeriodicBuyInvestmentGenerator, InflationGenerator, NZSalaryGenerator } from '../generators';
+import type { RepeatTransferGenerator, InterestPaymentGenerator, MortgageRepaymentGenerator, IndexAppreciationGenerator, PeriodicBuyInvestmentGenerator, InflationGenerator, NZSalaryGenerator, DrawdownGenerator } from '../generators';
 import type { World } from '../world';
 
 const DAY_MS = 86_400_000;
@@ -439,5 +439,107 @@ describe('NZSalaryGenerator', () => {
     const day13 = JAN_1_2024 + 13 * DAY_MS;
     expect(generate(gen, worldAt(day14, accounts))).toHaveLength(3);
     expect(generate(gen, worldAt(day13, accounts))).toHaveLength(0);
+  });
+});
+
+describe('DrawdownGenerator', () => {
+  const fund = { name: 'fund', indexPrice: 10.0, unitsHeld: 1000 }; // total value = $10,000
+
+  const percentGen: DrawdownGenerator = {
+    kind: 'drawdown',
+    name: 'fund-drawdown',
+    startDay: JAN_1_2024,
+    investmentName: 'fund',
+    mode: 'percent',
+    annualPercent: 12,
+    annualAmount: 0,
+    toAccount: 'cash',
+    inflationLinked: false,
+    baseInflationIndex: 1,
+  };
+
+  const fixedGen: DrawdownGenerator = {
+    kind: 'drawdown',
+    name: 'fund-drawdown',
+    startDay: JAN_1_2024,
+    investmentName: 'fund',
+    mode: 'fixed',
+    annualPercent: 0,
+    annualAmount: 1200,
+    toAccount: 'cash',
+    inflationLinked: false,
+    baseInflationIndex: 1,
+  };
+
+  it('percent mode fires on first of month and produces sell event', () => {
+    const world = worldAt(FEB_1_2024, [], [fund]);
+    const events = generate(percentGen, world);
+    expect(events).toHaveLength(1);
+    expect(events[0].kind).toBe('sell_investment_units');
+  });
+
+  it('percent mode calculates 1/12 of annual percent of current value', () => {
+    const world = worldAt(FEB_1_2024, [], [fund]);
+    const events = generate(percentGen, world);
+    // 12% of $10,000 / 12 months = $100
+    if (events[0].kind === 'sell_investment_units') {
+      expect(events[0].cashAmount).toBe(100);
+    }
+  });
+
+  it('percent mode does not fire on a non-first-of-month day', () => {
+    const world = worldAt(JAN_2_2024, [], [fund]);
+    expect(generate(percentGen, world)).toHaveLength(0);
+  });
+
+  it('percent mode returns no events when investment is exhausted', () => {
+    const emptyFund = { name: 'fund', indexPrice: 10.0, unitsHeld: 0 };
+    const world = worldAt(FEB_1_2024, [], [emptyFund]);
+    expect(generate(percentGen, world)).toHaveLength(0);
+  });
+
+  it('fixed mode fires on first of month with annualAmount / 12', () => {
+    const world = worldAt(FEB_1_2024, [], [fund]);
+    const events = generate(fixedGen, world);
+    expect(events).toHaveLength(1);
+    if (events[0].kind === 'sell_investment_units') {
+      expect(events[0].cashAmount).toBe(100);
+    }
+  });
+
+  it('fixed mode caps sell amount at available investment value', () => {
+    const tinyFund = { name: 'fund', indexPrice: 1.0, unitsHeld: 50 }; // value = $50
+    const world = worldAt(FEB_1_2024, [], [tinyFund]);
+    const events = generate(fixedGen, world);
+    // monthly amount is $100 but only $50 available
+    if (events[0].kind === 'sell_investment_units') {
+      expect(events[0].cashAmount).toBe(50);
+    }
+  });
+
+  it('fixed inflation-linked mode scales amount with inflation index', () => {
+    const linkedGen: DrawdownGenerator = { ...fixedGen, inflationLinked: true, baseInflationIndex: 1 };
+    const world = worldAt(FEB_1_2024, [], [fund], 1.5);
+    const events = generate(linkedGen, world);
+    // $1200 * 1.5 inflation / 12 months = $150
+    if (events[0].kind === 'sell_investment_units') {
+      expect(events[0].cashAmount).toBe(150);
+    }
+  });
+
+  it('sell event targets the configured toAccount', () => {
+    const world = worldAt(FEB_1_2024, [], [fund]);
+    const events = generate(percentGen, world);
+    if (events[0].kind === 'sell_investment_units') {
+      expect(events[0].toAccount).toBe('cash');
+    }
+  });
+
+  it('sell event names the correct investment', () => {
+    const world = worldAt(FEB_1_2024, [], [fund]);
+    const events = generate(percentGen, world);
+    if (events[0].kind === 'sell_investment_units') {
+      expect(events[0].investmentName).toBe('fund');
+    }
   });
 });

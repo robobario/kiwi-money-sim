@@ -11,6 +11,7 @@ export interface Snapshot {
   readonly day: number;
   readonly balances: Record<string, number>;
   readonly investmentValues: Record<string, number>;
+  readonly inflationIndex: number;
 }
 
 export interface SimulationResult {
@@ -83,5 +84,5 @@ function captureSnapshot(world: World): Snapshot {
   for (const investment of world.investments) {
     investmentValues[investment.name] = investment.unitsHeld * investment.indexPrice;
   }
-  return { day: world.currentDay, balances, investmentValues };
+  return { day: world.currentDay, balances, investmentValues, inflationIndex: world.inflationIndex };
 }

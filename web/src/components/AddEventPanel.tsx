@@ -4,7 +4,7 @@ import type { Frequency } from '../engine/events';
 import { CASH_ACCOUNT, INCOME_ACCOUNT } from '../engine/simulation';
 import type { Person } from '../types/form';
 
-type EventType = 'start_job' | 'end_job' | 'retire' | 'income' | 'cost' | 'investment' | 'buy_house' | 'mortgage' | 'sell_house' | 'superannuation';
+type EventType = 'start_job' | 'end_job' | 'retire' | 'drawdown' | 'income' | 'cost' | 'investment' | 'buy_house' | 'mortgage' | 'sell_house' | 'superannuation';
 
 interface FormState {
   eventType: EventType;
@@ -32,6 +32,11 @@ interface FormState {
   deposit: number;
   selectedHouse: string;
   selectedJobName: string;
+  drawdownInvestment: string;
+  drawdownMode: 'percent' | 'fixed';
+  drawdownPercent: number;
+  drawdownAmount: number;
+  drawdownInflationLinked: boolean;
   useMarketPrice: boolean;
   salePrice: number;
   agentFeePercent: number;
@@ -66,6 +71,11 @@ function stateFromGesture(g: Gesture | undefined, today: string, defaultPersonNa
     deposit: 0,
     selectedHouse: '',
     selectedJobName: '',
+    drawdownInvestment: '',
+    drawdownMode: 'percent',
+    drawdownPercent: 4,
+    drawdownAmount: 0,
+    drawdownInflationLinked: true,
     useMarketPrice: true,
     salePrice: 0,
     agentFeePercent: 2.5,
@@ -105,6 +115,11 @@ function stateFromGesture(g: Gesture | undefined, today: string, defaultPersonNa
         agentFeePercent: g.agentFeePercent, fixedCosts: g.fixedCosts };
     case 'start_superannuation':
       return { ...defaults, eventType: 'superannuation', startDate, personName: g.personName, livingSituation: g.livingSituation };
+    case 'start_drawdown':
+      return { ...defaults, eventType: 'drawdown', startDate,
+        drawdownInvestment: g.investmentName, drawdownMode: g.mode,
+        drawdownPercent: g.annualPercent, drawdownAmount: g.annualAmount,
+        drawdownInflationLinked: g.inflationLinked };
     case 'end_job':
       return { ...defaults, eventType: 'end_job', startDate, personName: g.personName, selectedJobName: g.jobName };
     case 'retire':
@@ -121,6 +136,7 @@ interface AddEventFormProps {
   startDay: Date;
   availableHouses: string[];
   availableJobs: { personName: string; jobName: string }[];
+  availableInvestments: string[];
   initialGesture?: Gesture;
   persons: Person[];
 }
@@ -155,7 +171,7 @@ function FrequencySelect({ value, onChange }: { value: Frequency; onChange: (v: 
   );
 }
 
-export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHouses, availableJobs, initialGesture, persons }: AddEventFormProps) {
+export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHouses, availableJobs, availableInvestments, initialGesture, persons }: AddEventFormProps) {
   const today = toDateString(startDay);
   const defaultPersonName = persons[0]?.name ?? '';
   const init = stateFromGesture(initialGesture, today, defaultPersonName);
@@ -193,6 +209,11 @@ export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHou
   const [deposit, setDeposit] = useState(init.deposit);
   const [selectedHouse, setSelectedHouse] = useState(init.selectedHouse);
   const [selectedJobName, setSelectedJobName] = useState(init.selectedJobName);
+  const [drawdownInvestment, setDrawdownInvestment] = useState(init.drawdownInvestment);
+  const [drawdownMode, setDrawdownMode] = useState<'percent' | 'fixed'>(init.drawdownMode);
+  const [drawdownPercent, setDrawdownPercent] = useState(init.drawdownPercent);
+  const [drawdownAmount, setDrawdownAmount] = useState(init.drawdownAmount);
+  const [drawdownInflationLinked, setDrawdownInflationLinked] = useState(init.drawdownInflationLinked);
   const [useMarketPrice, setUseMarketPrice] = useState(init.useMarketPrice);
   const [salePrice, setSalePrice] = useState(init.salePrice);
   const [agentFeePercent, setAgentFeePercent] = useState(init.agentFeePercent);
@@ -251,6 +272,16 @@ export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHou
         interestFrequency: 'first_of_month', termYears, paymentFromAccount: CASH_ACCOUNT,
         annualHousePriceGrowthPercent: housePriceGrowth,
       };
+    } else if (eventType === 'drawdown') {
+      const investmentName = drawdownInvestment || availableInvestments[0];
+      if (!investmentName) return;
+      if (drawdownMode === 'percent' && drawdownPercent <= 0) return;
+      if (drawdownMode === 'fixed' && drawdownAmount <= 0) return;
+      gesture = {
+        kind: 'start_drawdown', day, investmentName,
+        mode: drawdownMode, annualPercent: drawdownPercent,
+        annualAmount: drawdownAmount, inflationLinked: drawdownInflationLinked,
+      };
     } else if (eventType === 'end_job') {
       const jobName = selectedJobName || availableJobs.filter(j => j.personName === personName)[0]?.jobName;
       if (!jobName) return;
@@ -284,6 +315,7 @@ export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHou
             <option value="start_job">Start Job</option>
             <option value="end_job">End Job</option>
             <option value="retire">Retire</option>
+            <option value="drawdown">Start Recurring Drawdown</option>
             <option value="superannuation">Start NZ Super</option>
             <option value="income">Recurring Income</option>
             <option value="cost">Recurring Cost</option>
@@ -372,6 +404,47 @@ export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHou
 
       {eventType === 'retire' && (
         <p style={{ color: '#6b7280', fontSize: '0.9rem' }}>Ends all active jobs for {personName} on this date.</p>
+      )}
+
+      {eventType === 'drawdown' && (
+        availableInvestments.length === 0 ? (
+          <p style={{ color: '#6b7280', fontSize: '0.9rem' }}>No investments found — add a Start Job with KiwiSaver or a Periodic Investment first.</p>
+        ) : (
+          <>
+            <div className="form-row">
+              <Field label="Investment">
+                <select value={drawdownInvestment || availableInvestments[0]} onChange={e => setDrawdownInvestment(e.target.value)}>
+                  {availableInvestments.map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </Field>
+              <Field label="Mode">
+                <select value={drawdownMode} onChange={e => setDrawdownMode(e.target.value as 'percent' | 'fixed')}>
+                  <option value="percent">Percentage of value</option>
+                  <option value="fixed">Fixed annual amount</option>
+                </select>
+              </Field>
+            </div>
+            <div className="form-row">
+              {drawdownMode === 'percent' ? (
+                <Field label="Annual % to withdraw">
+                  <input type="number" step="0.5" min="0" max="100" value={drawdownPercent} onChange={e => setDrawdownPercent(Number(e.target.value))} />
+                </Field>
+              ) : (
+                <>
+                  <Field label="Annual amount ($)">
+                    <input type="number" min="0" value={drawdownAmount} onChange={e => setDrawdownAmount(Number(e.target.value))} />
+                  </Field>
+                  <Field label=" ">
+                    <label className="checkbox-label">
+                      <input type="checkbox" checked={drawdownInflationLinked} onChange={e => setDrawdownInflationLinked(e.target.checked)} />
+                      Inflation-linked
+                    </label>
+                  </Field>
+                </>
+              )}
+            </div>
+          </>
+        )
       )}
 
       {eventType === 'superannuation' && (

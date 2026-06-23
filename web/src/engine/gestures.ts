@@ -95,6 +95,16 @@ export interface SellHouseGesture {
   readonly fixedCosts: number;
 }
 
+export interface StartDrawdownGesture {
+  readonly kind: 'start_drawdown';
+  readonly day: number;
+  readonly investmentName: string;
+  readonly mode: 'percent' | 'fixed';
+  readonly annualPercent: number;
+  readonly annualAmount: number;
+  readonly inflationLinked: boolean;
+}
+
 export interface EndJobGesture {
   readonly kind: 'end_job';
   readonly day: number;
@@ -128,6 +138,7 @@ export type Gesture =
   | StartJobGesture
   | EndJobGesture
   | RetireGesture
+  | StartDrawdownGesture
   | SellHouseGesture
   | StartSuperannuationGesture;
 
@@ -307,6 +318,26 @@ export function gestureEvents(gesture: Gesture, world?: World): Event[] {
         },
       });
       return events;
+    }
+
+    case 'start_drawdown': {
+      const generatorName = `${gesture.investmentName}-drawdown`;
+      return [{
+        kind: 'register_generator',
+        name: generatorName,
+        generator: {
+          kind: 'drawdown',
+          name: generatorName,
+          startDay: gesture.day,
+          investmentName: gesture.investmentName,
+          mode: gesture.mode,
+          annualPercent: gesture.annualPercent,
+          annualAmount: gesture.annualAmount,
+          toAccount: 'cash',
+          inflationLinked: gesture.inflationLinked,
+          baseInflationIndex,
+        },
+      }];
     }
 
     case 'end_job': {

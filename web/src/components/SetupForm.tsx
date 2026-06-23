@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { GlobalConfig, Person } from '../types/form';
 import { simulationYears } from '../types/form';
-import type { Gesture, CreateExistingMortgageGesture, BuyHouseGesture, StartJobGesture } from '../engine/gestures';
+import type { Gesture, CreateExistingMortgageGesture, BuyHouseGesture, StartJobGesture, StartDrawdownGesture, CreatePeriodicInvestmentGesture } from '../engine/gestures';
 import { AddEventForm } from './AddEventPanel';
 
 interface SetupTabProps {
@@ -49,6 +49,12 @@ function gestureLabel(g: Gesture): string {
       return `Buy ${g.name}: $${g.housePrice.toLocaleString()}, $${g.deposit.toLocaleString()} deposit, $${(g.housePrice - g.deposit).toLocaleString()} mortgage at ${g.annualRatePercent}% / ${g.termYears}yr`;
     case 'sell_house':
       return `Sell ${g.houseName}: ${g.salePriceOverride !== undefined ? `$${g.salePriceOverride.toLocaleString()} fixed` : 'market price'}, ${g.agentFeePercent}% agent, $${g.fixedCosts.toLocaleString()} legal`;
+    case 'start_drawdown': {
+      const target = g.mode === 'percent'
+        ? `${g.annualPercent}% p.a.`
+        : `$${g.annualAmount.toLocaleString()} p.a.${g.inflationLinked ? ' (inflation-linked)' : ''}`;
+      return `Drawdown ${target} from ${g.investmentName}`;
+    }
     case 'end_job':
       return `[${g.personName}] End job: ${g.jobName}`;
     case 'retire':
@@ -103,6 +109,15 @@ export function SetupTab({ config, onConfigChange, timeline, onAddEvent, onUpdat
   const availableJobs = timeline
     .filter((g): g is StartJobGesture => g.kind === 'start_job')
     .map(g => ({ personName: g.personName, jobName: g.name }));
+
+  const kiwiSaverInvestments = timeline
+    .filter((g): g is StartJobGesture => g.kind === 'start_job' && g.kiwiSaverEnabled)
+    .map(g => `${g.personName}-${g.name}-kiwisaver`);
+  const periodicInvestments = (timeline.filter(g => g.kind === 'create_periodic_investment') as CreatePeriodicInvestmentGesture[])
+    .map(g => g.name);
+  const drawdownTargets = (timeline.filter(g => g.kind === 'start_drawdown') as StartDrawdownGesture[])
+    .map(g => g.investmentName);
+  const availableInvestments = [...new Set([...kiwiSaverInvestments, ...periodicInvestments, ...drawdownTargets])];
 
 
   const endDate = new Date(startDay);
@@ -179,6 +194,7 @@ export function SetupTab({ config, onConfigChange, timeline, onAddEvent, onUpdat
               startDay={startDay}
               availableHouses={availableHouses}
               availableJobs={availableJobs}
+              availableInvestments={availableInvestments}
               initialGesture={gesture}
               persons={config.persons}
             />
@@ -193,7 +209,7 @@ export function SetupTab({ config, onConfigChange, timeline, onAddEvent, onUpdat
         )}
 
         {showAddForm ? (
-          <AddEventForm onAdd={handleAdd} startDay={startDay} onCancel={() => setShowAddForm(false)} availableHouses={availableHouses} availableJobs={availableJobs} persons={config.persons} />
+          <AddEventForm onAdd={handleAdd} startDay={startDay} onCancel={() => setShowAddForm(false)} availableHouses={availableHouses} availableJobs={availableJobs} availableInvestments={availableInvestments} persons={config.persons} />
         ) : editingIndex === null ? (
           <button type="button" className="btn-secondary timeline-add-btn" onClick={() => setShowAddForm(true)}>
             + Add Event

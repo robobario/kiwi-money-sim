@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -64,6 +65,10 @@ function chartOptions() {
 }
 
 export function ChartView({ snapshots, mortgageName, externalAccountNames = [] }: ChartViewProps) {
+  const [realTerms, setRealTerms] = useState(false);
+
+  const adj = (s: Snapshot, value: number) => realTerms ? value / s.inflationIndex : value;
+
   const labels = snapshots.map(s => formatDate(s.day));
 
   const houseInvestmentKey = mortgageName ? `${mortgageName}-house` : undefined;
@@ -83,13 +88,13 @@ export function ChartView({ snapshots, mortgageName, externalAccountNames = [] }
       .filter(([name]) => !externalSet.has(name))
       .reduce((sum, [, bal]) => sum + bal, 0);
     const investmentTotal = Object.values(s.investmentValues ?? {}).reduce((sum, v) => sum + v, 0);
-    return accountTotal + investmentTotal;
+    return adj(s, accountTotal + investmentTotal);
   });
 
-  const cash = snapshots.map(s => s.balances['cash'] ?? 0);
+  const cash = snapshots.map(s => adj(s, s.balances['cash'] ?? 0));
 
   const totalCosts = snapshots.map(s =>
-    costAccountNames.reduce((sum, name) => sum + (s.balances[name] ?? 0), 0)
+    adj(s, costAccountNames.reduce((sum, name) => sum + (s.balances[name] ?? 0), 0))
   );
 
   const mainDatasets: Record<string, unknown>[] = [
@@ -102,12 +107,12 @@ export function ChartView({ snapshots, mortgageName, externalAccountNames = [] }
     const houseKey    = `${mortgageName}-house`;
     mainDatasets.push({
       label: 'Mortgage Balance',
-      data: snapshots.map(s => s.balances[mortgageKey] ?? 0),
+      data: snapshots.map(s => adj(s, s.balances[mortgageKey] ?? 0)),
       borderColor: '#ef4444', backgroundColor: '#ef444420', pointRadius: 0, tension: 0,
     });
     mainDatasets.push({
       label: 'House Equity',
-      data: snapshots.map(s => ((s.investmentValues ?? {})[houseKey] ?? 0) + (s.balances[mortgageKey] ?? 0)),
+      data: snapshots.map(s => adj(s, ((s.investmentValues ?? {})[houseKey] ?? 0) + (s.balances[mortgageKey] ?? 0))),
       borderColor: '#f97316', backgroundColor: '#f9731620', pointRadius: 0, tension: 0,
     });
   }
@@ -115,7 +120,7 @@ export function ChartView({ snapshots, mortgageName, externalAccountNames = [] }
   investmentNames.forEach((name, idx) => {
     const color = INVESTMENT_COLORS[idx % INVESTMENT_COLORS.length];
     mainDatasets.push({
-      label: name, data: snapshots.map(s => (s.investmentValues ?? {})[name] ?? 0),
+      label: name, data: snapshots.map(s => adj(s, (s.investmentValues ?? {})[name] ?? 0)),
       borderColor: color, backgroundColor: color + '20', pointRadius: 0, tension: 0,
     });
   });
@@ -132,7 +137,7 @@ export function ChartView({ snapshots, mortgageName, externalAccountNames = [] }
   if (hasIncomeAccount) {
     mainDatasets.push({
       label: 'Total Income',
-      data: snapshots.map(s => -(s.balances[INCOME_ACCOUNT] ?? 0)),
+      data: snapshots.map(s => adj(s, -(s.balances[INCOME_ACCOUNT] ?? 0))),
       borderColor: INCOME_COLOR, backgroundColor: INCOME_COLOR + '20',
       borderDash: [4, 4], pointRadius: 0, tension: 0,
     });
@@ -142,7 +147,7 @@ export function ChartView({ snapshots, mortgageName, externalAccountNames = [] }
     const color = COST_COLORS[idx % COST_COLORS.length];
     return {
       label: costLabel(accountName),
-      data: snapshots.map(s => s.balances[accountName] ?? 0),
+      data: snapshots.map(s => adj(s, s.balances[accountName] ?? 0)),
       borderColor: color, backgroundColor: color + '20',
       pointRadius: 0, tension: 0,
     };
@@ -150,6 +155,10 @@ export function ChartView({ snapshots, mortgageName, externalAccountNames = [] }
 
   return (
     <div style={{ width: '100%', maxWidth: 900, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+      <label className="checkbox-label" style={{ alignSelf: 'flex-end', fontSize: '0.9rem' }}>
+        <input type="checkbox" checked={realTerms} onChange={e => setRealTerms(e.target.checked)} />
+        Show in today's money (inflation-adjusted)
+      </label>
       <Line data={{ labels, datasets: mainDatasets as never[] }} options={chartOptions()} />
       {costAccountNames.length > 0 && (
         <div>

@@ -1,4 +1,4 @@
-import type { Event, Frequency } from './events';
+import type { Event, Frequency, SellInvestmentUnitsEvent } from './events';
 import type { World } from './world';
 import { roundCents } from './money';
 import { calculateAnnualTax, calculateAnnualACC, DEFAULT_NZ_TAX_BRACKETS } from './nzTax';
@@ -75,6 +75,19 @@ export interface NZSalaryGenerator {
   readonly baseInflationIndex?: number;
 }
 
+export interface DrawdownGenerator {
+  readonly kind: 'drawdown';
+  readonly name: string;
+  readonly startDay: number;
+  readonly investmentName: string;
+  readonly mode: 'percent' | 'fixed';
+  readonly annualPercent: number;
+  readonly annualAmount: number;
+  readonly toAccount: string;
+  readonly inflationLinked: boolean;
+  readonly baseInflationIndex: number;
+}
+
 export type EventGenerator =
   | RepeatTransferGenerator
   | InterestPaymentGenerator
@@ -82,7 +95,8 @@ export type EventGenerator =
   | IndexAppreciationGenerator
   | PeriodicBuyInvestmentGenerator
   | InflationGenerator
-  | NZSalaryGenerator;
+  | NZSalaryGenerator
+  | DrawdownGenerator;
 
 export function generate(gen: EventGenerator, world: World): Event[] {
   switch (gen.kind) {
@@ -149,6 +163,26 @@ export function generate(gen: EventGenerator, world: World): Event[] {
           events.push({ kind: 'buy_investment_units', investmentName: gen.kiwiSaverInvestmentName, cashAmount: emplrKS, fromAccount: gen.fromAccount });
       }
       return events;
+    }
+    case 'drawdown': {
+      if (!shouldFire('first_of_month', world.currentDay, gen.startDay)) return [];
+      const investment = world.investments.find(i => i.name === gen.investmentName);
+      if (!investment || investment.unitsHeld <= 0) return [];
+      let monthlyAmount: number;
+      if (gen.mode === 'percent') {
+        const currentValue = investment.unitsHeld * investment.indexPrice;
+        monthlyAmount = roundCents(currentValue * gen.annualPercent / 100 / 12);
+      } else {
+        const effectiveAnnual = gen.inflationLinked
+          ? gen.annualAmount * world.inflationIndex / gen.baseInflationIndex
+          : gen.annualAmount;
+        monthlyAmount = roundCents(effectiveAnnual / 12);
+      }
+      if (monthlyAmount <= 0) return [];
+      const availableValue = roundCents(investment.unitsHeld * investment.indexPrice);
+      const actualAmount = Math.min(monthlyAmount, availableValue);
+      const sell: SellInvestmentUnitsEvent = { kind: 'sell_investment_units', investmentName: gen.investmentName, cashAmount: actualAmount, toAccount: gen.toAccount };
+      return [sell];
     }
   }
 }

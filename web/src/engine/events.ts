@@ -59,6 +59,13 @@ export interface ClearInvestmentEvent {
   readonly name: string;
 }
 
+export interface SellInvestmentUnitsEvent {
+  readonly kind: 'sell_investment_units';
+  readonly investmentName: string;
+  readonly cashAmount: number;
+  readonly toAccount: string;
+}
+
 export type Event =
   | TransferEvent
   | CreateAccountEvent
@@ -67,6 +74,7 @@ export type Event =
   | CreateInvestmentEvent
   | UpdateIndexPriceEvent
   | BuyInvestmentUnitsEvent
+  | SellInvestmentUnitsEvent
   | UpdateInflationIndexEvent
   | ClearInvestmentEvent;
 
@@ -120,6 +128,19 @@ export function applyEvent(world: World, event: Event): World {
         ),
         accounts: world.accounts.map(a =>
           a.name === event.fromAccount ? { ...a, balance: a.balance - event.cashAmount } : a
+        ),
+      };
+    }
+    case 'sell_investment_units': {
+      const investment = world.investments.find(i => i.name === event.investmentName)!;
+      const unitsToRemove = event.cashAmount / investment.indexPrice;
+      return {
+        ...world,
+        investments: world.investments.map(i =>
+          i.name === event.investmentName ? { ...i, unitsHeld: Math.max(0, i.unitsHeld - unitsToRemove) } : i
+        ),
+        accounts: world.accounts.map(a =>
+          a.name === event.toAccount ? { ...a, balance: a.balance + event.cashAmount } : a
         ),
       };
     }
