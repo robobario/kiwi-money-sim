@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import type { Gesture } from '../engine/gestures';
+import type { Gesture, SuperannuationLivingSituation } from '../engine/gestures';
 import type { Frequency } from '../engine/events';
 import { CASH_ACCOUNT, INCOME_ACCOUNT } from '../engine/simulation';
 
-type EventType = 'start_job' | 'income' | 'cost' | 'investment' | 'buy_house' | 'mortgage' | 'sell_house';
+type EventType = 'start_job' | 'income' | 'cost' | 'investment' | 'buy_house' | 'mortgage' | 'sell_house' | 'superannuation';
 
 interface FormState {
   eventType: EventType;
@@ -33,6 +33,7 @@ interface FormState {
   salePrice: number;
   agentFeePercent: number;
   fixedCosts: number;
+  livingSituation: SuperannuationLivingSituation;
 }
 
 function stateFromGesture(g: Gesture | undefined, today: string): FormState {
@@ -64,6 +65,7 @@ function stateFromGesture(g: Gesture | undefined, today: string): FormState {
     salePrice: 0,
     agentFeePercent: 2.5,
     fixedCosts: 2000,
+    livingSituation: 'single_alone',
   };
   if (!g) return defaults;
 
@@ -96,6 +98,8 @@ function stateFromGesture(g: Gesture | undefined, today: string): FormState {
       return { ...defaults, eventType: 'sell_house', startDate, selectedHouse: g.houseName,
         useMarketPrice: g.salePriceOverride === undefined, salePrice: g.salePriceOverride ?? 0,
         agentFeePercent: g.agentFeePercent, fixedCosts: g.fixedCosts };
+    case 'start_superannuation':
+      return { ...defaults, eventType: 'superannuation', startDate, livingSituation: g.livingSituation };
     default:
       return { ...defaults, startDate };
   }
@@ -108,6 +112,7 @@ interface AddEventFormProps {
   startDay: Date;
   availableHouses: string[];
   initialGesture?: Gesture;
+  currentAge: number;
 }
 
 function truncateToDay(date: Date): number {
@@ -140,9 +145,16 @@ function FrequencySelect({ value, onChange }: { value: Frequency; onChange: (v: 
   );
 }
 
-export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHouses, initialGesture }: AddEventFormProps) {
+export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHouses, initialGesture, currentAge }: AddEventFormProps) {
   const today = toDateString(startDay);
   const init = stateFromGesture(initialGesture, today);
+
+  const superDate = (() => {
+    const d = new Date(startDay);
+    d.setUTCFullYear(d.getUTCFullYear() + Math.max(0, 65 - currentAge));
+    d.setUTCHours(0, 0, 0, 0);
+    return d.toISOString().slice(0, 10);
+  })();
 
   const [eventType, setEventType] = useState<EventType>(init.eventType);
   const [name, setName] = useState(init.name);
@@ -171,8 +183,16 @@ export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHou
   const [salePrice, setSalePrice] = useState(init.salePrice);
   const [agentFeePercent, setAgentFeePercent] = useState(init.agentFeePercent);
   const [fixedCosts, setFixedCosts] = useState(init.fixedCosts);
+  const [livingSituation, setLivingSituation] = useState<SuperannuationLivingSituation>(init.livingSituation);
 
   const isEditing = onUpdate !== undefined;
+
+  const handleEventTypeChange = (newType: EventType) => {
+    setEventType(newType);
+    if (newType === 'superannuation' && !initialGesture) {
+      setStartDate(superDate);
+    }
+  };
 
   const handleSubmit = () => {
     const day = truncateToDay(new Date(startDate + 'T00:00:00Z'));
@@ -210,6 +230,8 @@ export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHou
         interestFrequency: 'first_of_month', termYears, paymentFromAccount: CASH_ACCOUNT,
         annualHousePriceGrowthPercent: housePriceGrowth,
       };
+    } else if (eventType === 'superannuation') {
+      gesture = { kind: 'start_superannuation', day, livingSituation };
     } else {
       const house = selectedHouse || availableHouses[0];
       if (!house) return;
@@ -230,8 +252,9 @@ export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHou
     <div className="add-event-form">
       <div className="form-row">
         <Field label="Event type">
-          <select value={eventType} onChange={e => setEventType(e.target.value as EventType)}>
+          <select value={eventType} onChange={e => handleEventTypeChange(e.target.value as EventType)}>
             <option value="start_job">Start Job</option>
+            <option value="superannuation">Start NZ Super</option>
             <option value="income">Recurring Income</option>
             <option value="cost">Recurring Cost</option>
             <option value="investment">Periodic Investment</option>
@@ -290,6 +313,19 @@ export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHou
             )}
           </div>
         </>
+      )}
+
+      {eventType === 'superannuation' && (
+        <div className="form-row">
+          <Field label="Living situation">
+            <select value={livingSituation} onChange={e => setLivingSituation(e.target.value as SuperannuationLivingSituation)}>
+              <option value="single_alone">Single (living alone) — $555.15/wk</option>
+              <option value="single_sharing">Single (sharing accommodation) — $512.45/wk</option>
+              <option value="couple_both">Couple (both qualify) — $854.08/wk combined</option>
+              <option value="couple_one">Couple (one qualifies) — $812.08/wk</option>
+            </select>
+          </Field>
+        </div>
       )}
 
       {(eventType === 'income' || eventType === 'cost') && (

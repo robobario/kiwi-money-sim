@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { GlobalConfig } from '../types/form';
+import { simulationYears } from '../types/form';
 import type { Gesture, CreateExistingMortgageGesture, BuyHouseGesture } from '../engine/gestures';
 import { AddEventForm } from './AddEventPanel';
 
@@ -48,6 +49,15 @@ function gestureLabel(g: Gesture): string {
       return `Buy ${g.name}: $${g.housePrice.toLocaleString()}, $${g.deposit.toLocaleString()} deposit, $${(g.housePrice - g.deposit).toLocaleString()} mortgage at ${g.annualRatePercent}% / ${g.termYears}yr`;
     case 'sell_house':
       return `Sell ${g.houseName}: ${g.salePriceOverride !== undefined ? `$${g.salePriceOverride.toLocaleString()} fixed` : 'market price'}, ${g.agentFeePercent}% agent, $${g.fixedCosts.toLocaleString()} legal`;
+    case 'start_superannuation': {
+      const situationLabels: Record<string, string> = {
+        single_alone: 'Single (living alone)',
+        single_sharing: 'Single (sharing)',
+        couple_both: 'Couple (both qualify)',
+        couple_one: 'Couple (one qualifies)',
+      };
+      return `NZ Super: ${situationLabels[g.livingSituation] ?? g.livingSituation}`;
+    }
     default:
       return g.kind;
   }
@@ -74,7 +84,7 @@ export function SetupTab({ config, onConfigChange, timeline, onAddEvent, onUpdat
     .map(g => g.name);
 
   const endDate = new Date(startDay);
-  endDate.setUTCFullYear(endDate.getUTCFullYear() + config.simulationYears);
+  endDate.setUTCFullYear(endDate.getUTCFullYear() + simulationYears(config));
 
   const handleAdd = (gesture: Gesture) => {
     onAddEvent(gesture);
@@ -94,8 +104,12 @@ export function SetupTab({ config, onConfigChange, timeline, onAddEvent, onUpdat
           <input type="number" value={config.startingCash} onChange={e => update('startingCash', Number(e.target.value))} />
         </label>
         <label>
-          Duration (years)
-          <input type="number" min="1" value={config.simulationYears} onChange={e => update('simulationYears', Number(e.target.value))} />
+          Current age
+          <input type="number" min="1" max="120" value={config.currentAge} onChange={e => update('currentAge', Number(e.target.value))} />
+        </label>
+        <label>
+          Simulate to age
+          <input type="number" min="1" max="120" value={config.targetAge} onChange={e => update('targetAge', Number(e.target.value))} />
         </label>
         <label>
           Annual Inflation (%)
@@ -116,6 +130,7 @@ export function SetupTab({ config, onConfigChange, timeline, onAddEvent, onUpdat
               startDay={startDay}
               availableHouses={availableHouses}
               initialGesture={gesture}
+              currentAge={config.currentAge}
             />
           ) : (
             <div key={originalIndex} className="timeline-entry">
@@ -128,7 +143,7 @@ export function SetupTab({ config, onConfigChange, timeline, onAddEvent, onUpdat
         )}
 
         {showAddForm ? (
-          <AddEventForm onAdd={handleAdd} startDay={startDay} onCancel={() => setShowAddForm(false)} availableHouses={availableHouses} />
+          <AddEventForm onAdd={handleAdd} startDay={startDay} onCancel={() => setShowAddForm(false)} availableHouses={availableHouses} currentAge={config.currentAge} />
         ) : editingIndex === null ? (
           <button type="button" className="btn-secondary timeline-add-btn" onClick={() => setShowAddForm(true)}>
             + Add Event

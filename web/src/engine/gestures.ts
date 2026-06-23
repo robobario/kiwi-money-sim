@@ -94,6 +94,14 @@ export interface SellHouseGesture {
   readonly fixedCosts: number;
 }
 
+export type SuperannuationLivingSituation = 'single_alone' | 'single_sharing' | 'couple_both' | 'couple_one';
+
+export interface StartSuperannuationGesture {
+  readonly kind: 'start_superannuation';
+  readonly day: number;
+  readonly livingSituation: SuperannuationLivingSituation;
+}
+
 export type Gesture =
   | InitializeAccountGesture
   | CreateIncomeGesture
@@ -103,7 +111,8 @@ export type Gesture =
   | CreatePeriodicInvestmentGesture
   | CreateInflationGesture
   | StartJobGesture
-  | SellHouseGesture;
+  | SellHouseGesture
+  | StartSuperannuationGesture;
 
 export function gestureEvents(gesture: Gesture, world?: World): Event[] {
   const baseInflationIndex = world?.inflationIndex ?? 1;
@@ -325,6 +334,30 @@ export function gestureEvents(gesture: Gesture, world?: World): Event[] {
       }
       events.push({ kind: 'clear_investment', name: houseInvestmentName });
       return events;
+    }
+
+    case 'start_superannuation': {
+      const weeklyRates: Record<SuperannuationLivingSituation, number> = {
+        single_alone: 555.15,
+        single_sharing: 512.45,
+        couple_both: 854.08,
+        couple_one: 812.08,
+      };
+      return [{
+        kind: 'register_generator',
+        name: 'superannuation',
+        generator: {
+          kind: 'repeat_transfer',
+          name: 'superannuation',
+          startDay: gesture.day,
+          from: 'income',
+          to: 'cash',
+          amount: weeklyRates[gesture.livingSituation],
+          frequency: 'weekly',
+          inflationLinked: true,
+          baseInflationIndex,
+        },
+      }];
     }
 
     case 'create_existing_mortgage': {

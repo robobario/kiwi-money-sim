@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { GlobalConfig } from './types/form';
-import { DEFAULT_CONFIG } from './types/form';
+import { DEFAULT_CONFIG, simulationYears } from './types/form';
 import type { Gesture } from './engine/gestures';
 import type { SimulationResult } from './engine/simulation';
 import { runSimulation, WORLD_ACCOUNT, CASH_ACCOUNT, INCOME_ACCOUNT } from './engine/simulation';
@@ -42,7 +42,7 @@ export default function App() {
       const gestures = buildGestures(config, timeline, startDay);
       setResult(null);
       setProgress(0);
-      const simResult = await runSimulation(startDay, gestures, config.simulationYears, 7, setProgress);
+      const simResult = await runSimulation(startDay, gestures, simulationYears(config), 7, setProgress);
       setResult(simResult);
       setProgress(null);
     }
