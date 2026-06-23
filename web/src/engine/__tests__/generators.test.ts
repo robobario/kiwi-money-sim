@@ -418,6 +418,21 @@ describe('NZSalaryGenerator', () => {
     expect(ksEvents).toHaveLength(2);
   });
 
+  it('scales salary by inflation index when inflationLinked', () => {
+    const gen: NZSalaryGenerator = {
+      ...salaryGen,
+      kiwiSaverInvestmentName: undefined, employeeKiwiSaverPercent: 0, employerKiwiSaverPercent: 0,
+      inflationLinked: true, baseInflationIndex: 1,
+    };
+    // At inflationIndex 1.5, effective salary = 60000 * 1.5 = 90000
+    const world = { ...worldAt(FEB_1_2024, accounts), inflationIndex: 1.5 };
+    const baseEvents = generate({ ...gen, inflationLinked: false }, worldAt(FEB_1_2024, accounts));
+    const scaledEvents = generate(gen, world);
+    const baseNet = (baseEvents.find(e => e.kind === 'transfer' && (e as { to: string }).to === 'cash') as { amount: number })?.amount ?? 0;
+    const scaledNet = (scaledEvents.find(e => e.kind === 'transfer' && (e as { to: string }).to === 'cash') as { amount: number })?.amount ?? 0;
+    expect(scaledNet).toBeGreaterThan(baseNet);
+  });
+
   it('fires fortnightly every 14 days from start', () => {
     const gen: NZSalaryGenerator = { ...salaryGen, frequency: 'fortnightly' };
     const day14 = JAN_1_2024 + 14 * DAY_MS;

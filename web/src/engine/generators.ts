@@ -71,6 +71,8 @@ export interface NZSalaryGenerator {
   readonly kiwiSaverInvestmentName?: string;
   readonly employeeKiwiSaverPercent: number;
   readonly employerKiwiSaverPercent: number;
+  readonly inflationLinked?: boolean;
+  readonly baseInflationIndex?: number;
 }
 
 export type EventGenerator =
@@ -123,10 +125,13 @@ export function generate(gen: EventGenerator, world: World): Event[] {
     }
     case 'nz_salary': {
       if (!shouldFire(gen.frequency, world.currentDay, gen.startDay)) return [];
+      const effectiveSalary = gen.inflationLinked
+        ? gen.annualSalary * world.inflationIndex / (gen.baseInflationIndex ?? 1)
+        : gen.annualSalary;
       const periods = paymentsPerYearFor(gen.frequency);
-      const gross   = roundCents(gen.annualSalary / periods);
-      const tax     = roundCents(calculateAnnualTax(gen.annualSalary, DEFAULT_NZ_TAX_BRACKETS) / periods);
-      const acc     = roundCents(calculateAnnualACC(gen.annualSalary) / periods);
+      const gross   = roundCents(effectiveSalary / periods);
+      const tax     = roundCents(calculateAnnualTax(effectiveSalary, DEFAULT_NZ_TAX_BRACKETS) / periods);
+      const acc     = roundCents(calculateAnnualACC(effectiveSalary) / periods);
       const empKS   = roundCents(gross * gen.employeeKiwiSaverPercent / 100);
       const emplrKS = roundCents(gross * gen.employerKiwiSaverPercent / 100);
       const netCash = gross - tax - acc - empKS;

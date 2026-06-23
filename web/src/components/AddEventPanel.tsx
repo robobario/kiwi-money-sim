@@ -60,6 +60,7 @@ export function AddEventForm({ onAdd, onCancel, startDay, availableHouses }: Add
   const [jobName, setJobName] = useState('job');
   const [annualSalary, setAnnualSalary] = useState(0);
   const [payFrequency, setPayFrequency] = useState<'weekly' | 'fortnightly' | 'first_of_month'>('first_of_month');
+  const [inflationMatchedPayrise, setInflationMatchedPayrise] = useState(false);
   const [kiwiSaverEnabled, setKiwiSaverEnabled] = useState(true);
   const [employeeKiwiSaverPercent, setEmployeeKiwiSaverPercent] = useState(3);
   const [employerKiwiSaverPercent, setEmployerKiwiSaverPercent] = useState(3);
@@ -78,6 +79,7 @@ export function AddEventForm({ onAdd, onCancel, startDay, availableHouses }: Add
       onAdd({
         kind: 'start_job', day, name: jobName, annualSalary, payFrequency,
         kiwiSaverEnabled, employeeKiwiSaverPercent, employerKiwiSaverPercent, kiwiSaverGrowthPercent,
+        inflationMatchedPayrise,
       });
     } else if (eventType === 'income') {
       if (!name || amount <= 0) return;
@@ -152,6 +154,12 @@ export function AddEventForm({ onAdd, onCancel, startDay, availableHouses }: Add
             </Field>
           </div>
           <div className="form-row">
+            <Field label=" ">
+              <label className="checkbox-label">
+                <input type="checkbox" checked={inflationMatchedPayrise} onChange={e => setInflationMatchedPayrise(e.target.checked)} />
+                Yearly inflation-match payrise
+              </label>
+            </Field>
             <Field label=" ">
               <label className="checkbox-label">
                 <input type="checkbox" checked={kiwiSaverEnabled} onChange={e => setKiwiSaverEnabled(e.target.checked)} />

@@ -32,7 +32,8 @@ function gestureLabel(g: Gesture): string {
     case 'start_job': {
       const freq = ({ first_of_month: 'monthly', fortnightly: 'fortnightly', weekly: 'weekly' } as const)[g.payFrequency];
       const ks = g.kiwiSaverEnabled ? `, KiwiSaver ${g.employeeKiwiSaverPercent}%+${g.employerKiwiSaverPercent}%` : '';
-      return `${g.name}: $${g.annualSalary.toLocaleString()} gross p.a. (${freq}${ks})`;
+      const inf = g.inflationMatchedPayrise ? ', inflation-matched' : '';
+      return `${g.name}: $${g.annualSalary.toLocaleString()} gross p.a. (${freq}${ks}${inf})`;
     }
     case 'create_income':
       return `$${g.amount.toLocaleString()}${formatFreq(g.frequency)} ${g.name} (income${g.inflationLinked ? ', inflation-linked' : ''})`;

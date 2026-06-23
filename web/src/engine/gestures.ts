@@ -82,6 +82,7 @@ export interface StartJobGesture {
   readonly employeeKiwiSaverPercent: number;
   readonly employerKiwiSaverPercent: number;
   readonly kiwiSaverGrowthPercent: number;
+  readonly inflationMatchedPayrise: boolean;
 }
 
 export interface SellHouseGesture {
@@ -274,6 +275,8 @@ export function gestureEvents(gesture: Gesture, world?: World): Event[] {
           kiwiSaverInvestmentName: gesture.kiwiSaverEnabled ? ksName : undefined,
           employeeKiwiSaverPercent: gesture.employeeKiwiSaverPercent,
           employerKiwiSaverPercent: gesture.employerKiwiSaverPercent,
+          inflationLinked: gesture.inflationMatchedPayrise,
+          baseInflationIndex: gesture.inflationMatchedPayrise ? baseInflationIndex : undefined,
         },
       });
       return events;
