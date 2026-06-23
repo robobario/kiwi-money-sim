@@ -32,15 +32,20 @@ export default function App() {
   const [config, setConfig] = useState<GlobalConfig>(DEFAULT_CONFIG);
   const [timeline, setTimeline] = useState<Gesture[]>([]);
   const [result, setResult] = useState<SimulationResult | null>(null);
+  const [progress, setProgress] = useState<number | null>(null);
 
   const startDay = new Date();
 
-  const handleTabClick = (tab: 'setup' | 'results') => {
+  const handleTabClick = async (tab: 'setup' | 'results') => {
+    setActiveTab(tab);
     if (tab === 'results') {
       const gestures = buildGestures(config, timeline, startDay);
-      setResult(runSimulation(startDay, gestures, config.simulationYears));
+      setResult(null);
+      setProgress(0);
+      const simResult = await runSimulation(startDay, gestures, config.simulationYears, 7, setProgress);
+      setResult(simResult);
+      setProgress(null);
     }
-    setActiveTab(tab);
   };
 
   const mortgageGesture = timeline.find(g => g.kind === 'create_existing_mortgage');
@@ -74,10 +79,19 @@ export default function App() {
           startDay={startDay}
         />
       )}
-      {activeTab === 'results' && result && (
+      {activeTab === 'results' && progress !== null && (
+        <div className="progress-container">
+          <p>Running simulation...</p>
+          <div className="progress-bar-track">
+            <div className="progress-bar-fill" style={{ width: `${progress}%` }} />
+          </div>
+          <p className="progress-pct">{progress}%</p>
+        </div>
+      )}
+      {activeTab === 'results' && progress === null && result && (
         <SimulationPage result={result} mortgageName={mortgageName} />
       )}
-      {activeTab === 'results' && !result && (
+      {activeTab === 'results' && progress === null && !result && (
         <p className="empty-results">Switch to Setup, add some events, then come back to see results.</p>
       )}
     </div>

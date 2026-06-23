@@ -18,30 +18,45 @@ export interface SimulationResult {
   readonly snapshots: Snapshot[];
 }
 
-export function runSimulation(
+export async function runSimulation(
   startDay: Date,
   gestures: Gesture[],
   durationYears: number,
   snapshotIntervalDays: number = 7,
-): SimulationResult {
+  onProgress?: (pct: number) => void,
+): Promise<SimulationResult> {
   let world = createWorld(startDay);
   world = triggerGestures(world, gestures);
 
   const endTime = new Date(startDay);
   endTime.setUTCFullYear(endTime.getUTCFullYear() + durationYears);
   const endMs = endTime.getTime();
+  const totalDays = Math.round((endMs - startDay.getTime()) / 86_400_000);
+  const chunkSize = Math.max(1, Math.floor(totalDays / 10));
 
   const snapshots: Snapshot[] = [captureSnapshot(world)];
   let daysSinceSnapshot = 0;
+  let dayCount = 0;
+  let lastPct = 0;
 
   while (world.currentDay < endMs) {
     world = advanceDay(world);
     world = triggerGestures(world, gestures);
     daysSinceSnapshot++;
+    dayCount++;
 
     if (daysSinceSnapshot >= snapshotIntervalDays) {
       snapshots.push(captureSnapshot(world));
       daysSinceSnapshot = 0;
+    }
+
+    if (onProgress && dayCount % chunkSize === 0) {
+      const pct = Math.min(99, Math.floor(dayCount / totalDays * 100));
+      if (pct > lastPct) {
+        lastPct = pct;
+        onProgress(pct);
+        await new Promise<void>(r => setTimeout(r, 0));
+      }
     }
   }
 

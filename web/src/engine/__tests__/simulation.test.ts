@@ -14,25 +14,25 @@ function basicGestures(startDay: Date): Gesture[] {
 }
 
 describe('runSimulation', () => {
-  it('captures initial snapshot', () => {
-    const result = runSimulation(JAN_1_2024, basicGestures(JAN_1_2024), 1, 365);
+  it('captures initial snapshot', async () => {
+    const result = await runSimulation(JAN_1_2024, basicGestures(JAN_1_2024), 1, 365);
     expect(result.snapshots.length).toBeGreaterThanOrEqual(1);
     expect(result.snapshots[0].day).toBe(JAN_1_2024.getTime());
   });
 
-  it('captures snapshots at the specified interval', () => {
-    const result = runSimulation(JAN_1_2024, basicGestures(JAN_1_2024), 1, 30);
+  it('captures snapshots at the specified interval', async () => {
+    const result = await runSimulation(JAN_1_2024, basicGestures(JAN_1_2024), 1, 30);
     // 365 days / 30 = ~12 interval snapshots + 1 initial + 1 final remainder
     expect(result.snapshots.length).toBeGreaterThanOrEqual(12);
   });
 
-  it('always captures a final snapshot', () => {
-    const result = runSimulation(JAN_1_2024, basicGestures(JAN_1_2024), 1, 100);
+  it('always captures a final snapshot', async () => {
+    const result = await runSimulation(JAN_1_2024, basicGestures(JAN_1_2024), 1, 100);
     const last = result.snapshots[result.snapshots.length - 1];
     expect(last.day).toBe(result.finalWorld.currentDay);
   });
 
-  it('income-only scenario accumulates cash', () => {
+  it('income-only scenario accumulates cash', async () => {
     const day = JAN_1_2024.getTime();
     const gestures: Gesture[] = [
       ...basicGestures(JAN_1_2024),
@@ -41,7 +41,7 @@ describe('runSimulation', () => {
         amount: 5000, toAccount: CASH_ACCOUNT, fromAccount: INCOME_ACCOUNT,
       },
     ];
-    const result = runSimulation(JAN_1_2024, gestures, 1);
+    const result = await runSimulation(JAN_1_2024, gestures, 1);
     const cash = result.finalWorld.accounts.find(a => a.name === CASH_ACCOUNT)!.balance;
     // 12 months of $5000 (Jan 1 is the start day, gestures fire on it,
     // but the generator fires on subsequent 1sts, so ~11-12 payments depending on end date)
@@ -49,7 +49,7 @@ describe('runSimulation', () => {
     expect(cash).toBeLessThanOrEqual(60000);
   });
 
-  it('costs reduce cash balance', () => {
+  it('costs reduce cash balance', async () => {
     const day = JAN_1_2024.getTime();
     const gestures: Gesture[] = [
       ...basicGestures(JAN_1_2024),
@@ -62,14 +62,14 @@ describe('runSimulation', () => {
         amount: 2000, fromAccount: CASH_ACCOUNT,
       },
     ];
-    const result = runSimulation(JAN_1_2024, gestures, 1);
+    const result = await runSimulation(JAN_1_2024, gestures, 1);
     const cash = result.finalWorld.accounts.find(a => a.name === CASH_ACCOUNT)!.balance;
     // Net monthly: 5000 - 2000 = 3000, ~12 months
     expect(cash).toBeGreaterThanOrEqual(33000);
     expect(cash).toBeLessThanOrEqual(36000);
   });
 
-  it('gestures only fire on their specified day', () => {
+  it('gestures only fire on their specified day', async () => {
     const day = JAN_1_2024.getTime();
     const futureDay = Date.UTC(2024, 6, 1); // Jul 1 2024
     const gestures: Gesture[] = [
@@ -82,7 +82,7 @@ describe('runSimulation', () => {
     // Run for 6 months (Jan-Jun) — gesture shouldn't fire yet
     const sixMonths = new Date(Date.UTC(2024, 6, 1));
     const durationYears = (sixMonths.getTime() - JAN_1_2024.getTime()) / (365.25 * 86_400_000);
-    const result = runSimulation(JAN_1_2024, gestures, Math.ceil(durationYears));
+    const result = await runSimulation(JAN_1_2024, gestures, Math.ceil(durationYears));
     const cash = result.finalWorld.accounts.find(a => a.name === CASH_ACCOUNT)!.balance;
     // The future salary generator is registered on Jul 1. From Jul 1 to Jan 1 2025
     // is 6 first-of-months (Aug, Sep, Oct, Nov, Dec, Jan), so cash should be ~60000
@@ -92,7 +92,7 @@ describe('runSimulation', () => {
   });
 
   describe('full scenario matching Java main()', () => {
-    it('produces expected balances after 1 year', () => {
+    it('produces expected balances after 1 year', async () => {
       const day = JAN_1_2024.getTime();
       const gestures: Gesture[] = [
         { kind: 'initialize_account', day, accountName: WORLD_ACCOUNT, balance: 0 },
@@ -117,7 +117,7 @@ describe('runSimulation', () => {
         },
       ];
 
-      const result = runSimulation(JAN_1_2024, gestures, 1);
+      const result = await runSimulation(JAN_1_2024, gestures, 1);
       const accounts = result.finalWorld.accounts;
 
       const cash = accounts.find(a => a.name === CASH_ACCOUNT)!.balance;
@@ -136,7 +136,7 @@ describe('runSimulation', () => {
       expect(cash).toBeGreaterThan(0);
     });
 
-    it('mortgage balance reaches zero by end of term', () => {
+    it('mortgage balance reaches zero by end of term', async () => {
       const day = JAN_1_2024.getTime();
       const termYears = 22;
       const gestures: Gesture[] = [
@@ -151,12 +151,12 @@ describe('runSimulation', () => {
 
       // Run one extra year: rounding on each payment can leave a small residual that
       // clears in 1-2 extra months, after which both generators stop firing permanently.
-      const result = runSimulation(JAN_1_2024, gestures, termYears + 1);
+      const result = await runSimulation(JAN_1_2024, gestures, termYears + 1);
       const mortgage = result.finalWorld.accounts.find(a => a.name === 'home-mortgage')!.balance;
       expect(mortgage).toBeCloseTo(0, 2);
     });
 
-    it('mortgage balance decreases over time', () => {
+    it('mortgage balance decreases over time', async () => {
       const day = JAN_1_2024.getTime();
       const gestures: Gesture[] = [
         { kind: 'initialize_account', day, accountName: WORLD_ACCOUNT, balance: 0 },
@@ -173,7 +173,7 @@ describe('runSimulation', () => {
         },
       ];
 
-      const result = runSimulation(JAN_1_2024, gestures, 5);
+      const result = await runSimulation(JAN_1_2024, gestures, 5);
       const snapshots = result.snapshots;
       const firstMortgage = snapshots[0].balances['home-mortgage'] ?? 0;
       const lastMortgage = snapshots[snapshots.length - 1].balances['home-mortgage'] ?? 0;
@@ -184,7 +184,7 @@ describe('runSimulation', () => {
   });
 
   describe('inflation scenario', () => {
-    it('inflation-linked cost grows in nominal terms over time', () => {
+    it('inflation-linked cost grows in nominal terms over time', async () => {
       const day = JAN_1_2024.getTime();
       const gestures: Gesture[] = [
         { kind: 'initialize_account', day, accountName: WORLD_ACCOUNT, balance: 0 },
@@ -200,7 +200,7 @@ describe('runSimulation', () => {
         },
       ];
 
-      const result = runSimulation(JAN_1_2024, gestures, 10);
+      const result = await runSimulation(JAN_1_2024, gestures, 10);
       const linked = result.finalWorld.accounts.find(a => a.name === 'linked-cost-spend')!.balance;
       const staticAcc = result.finalWorld.accounts.find(a => a.name === 'static-cost-spend')!.balance;
 
@@ -210,7 +210,7 @@ describe('runSimulation', () => {
       expect(linked / staticAcc).toBeCloseTo(1.16, 0);
     });
 
-    it('inflation-linked salary grows with inflation', () => {
+    it('inflation-linked salary grows with inflation', async () => {
       const day = JAN_1_2024.getTime();
       const gestures: Gesture[] = [
         { kind: 'initialize_account', day, accountName: WORLD_ACCOUNT, balance: 0 },
@@ -229,14 +229,14 @@ describe('runSimulation', () => {
       ];
 
       // With salary linked and costs static, cash should be positive after 10 years
-      const result = runSimulation(JAN_1_2024, gestures, 10);
+      const result = await runSimulation(JAN_1_2024, gestures, 10);
       const cash = result.finalWorld.accounts.find(a => a.name === CASH_ACCOUNT)!.balance;
       expect(cash).toBeGreaterThan(0);
     });
   });
 
   describe('house price appreciation', () => {
-    it('house value grows at the configured rate', () => {
+    it('house value grows at the configured rate', async () => {
       const day = JAN_1_2024.getTime();
       const gestures: Gesture[] = [
         { kind: 'initialize_account', day, accountName: WORLD_ACCOUNT, balance: 0 },
@@ -249,14 +249,14 @@ describe('runSimulation', () => {
         },
       ];
 
-      const result = runSimulation(JAN_1_2024, gestures, 10);
+      const result = await runSimulation(JAN_1_2024, gestures, 10);
       const house = result.finalWorld.investments.find(i => i.name === 'home-house')!;
       // After 10 years at 3%: 700000 × 1.03^10 ≈ 940,462
       expect(house.unitsHeld * house.indexPrice).toBeGreaterThan(900_000);
       expect(house.unitsHeld * house.indexPrice).toBeLessThan(1_000_000);
     });
 
-    it('house value stays constant with zero growth rate', () => {
+    it('house value stays constant with zero growth rate', async () => {
       const day = JAN_1_2024.getTime();
       const gestures: Gesture[] = [
         { kind: 'initialize_account', day, accountName: WORLD_ACCOUNT, balance: 0 },
@@ -268,14 +268,14 @@ describe('runSimulation', () => {
         },
       ];
 
-      const result = runSimulation(JAN_1_2024, gestures, 10);
+      const result = await runSimulation(JAN_1_2024, gestures, 10);
       const house = result.finalWorld.investments.find(i => i.name === 'home-house')!;
       expect(house.unitsHeld * house.indexPrice).toBeCloseTo(700000, 0);
     });
   });
 
   describe('investment scenario', () => {
-    it('investment value grows over time with appreciation', () => {
+    it('investment value grows over time with appreciation', async () => {
       const day = JAN_1_2024.getTime();
       const gestures: Gesture[] = [
         { kind: 'initialize_account', day, accountName: WORLD_ACCOUNT, balance: 0 },
@@ -287,7 +287,7 @@ describe('runSimulation', () => {
         },
       ];
 
-      const result = runSimulation(JAN_1_2024, gestures, 10);
+      const result = await runSimulation(JAN_1_2024, gestures, 10);
       const fund = result.finalWorld.investments.find(i => i.name === 'fund')!;
 
       expect(fund).toBeDefined();
@@ -296,7 +296,7 @@ describe('runSimulation', () => {
       expect(fund.unitsHeld * fund.indexPrice).toBeGreaterThan(60_000);
     });
 
-    it('investment value is included in snapshots', () => {
+    it('investment value is included in snapshots', async () => {
       const day = JAN_1_2024.getTime();
       const gestures: Gesture[] = [
         { kind: 'initialize_account', day, accountName: WORLD_ACCOUNT, balance: 0 },
@@ -308,12 +308,12 @@ describe('runSimulation', () => {
         },
       ];
 
-      const result = runSimulation(JAN_1_2024, gestures, 1);
+      const result = await runSimulation(JAN_1_2024, gestures, 1);
       const lastSnapshot = result.snapshots[result.snapshots.length - 1];
       expect(lastSnapshot.investmentValues['fund']).toBeGreaterThan(0);
     });
 
-    it('index price appreciates at the specified annual rate', () => {
+    it('index price appreciates at the specified annual rate', async () => {
       const day = JAN_1_2024.getTime();
       const gestures: Gesture[] = [
         { kind: 'initialize_account', day, accountName: WORLD_ACCOUNT, balance: 0 },
@@ -325,7 +325,7 @@ describe('runSimulation', () => {
         },
       ];
 
-      const result = runSimulation(JAN_1_2024, gestures, 1);
+      const result = await runSimulation(JAN_1_2024, gestures, 1);
       const fund = result.finalWorld.investments.find(i => i.name === 'fund')!;
       // After 1 year at 5% annual growth, index should be close to 1.05
       expect(fund.indexPrice).toBeCloseTo(1.05, 2);
