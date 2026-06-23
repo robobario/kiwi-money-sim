@@ -57,7 +57,7 @@ function stateFromGesture(g: Gesture | undefined, today: string, defaultPersonNa
     jobName: 'job',
     annualSalary: 72800,
     payFrequency: 'first_of_month',
-    inflationMatchedPayrise: false,
+    inflationMatchedPayrise: true,
     kiwiSaverEnabled: true,
     employeeKiwiSaverPercent: 3.5,
     employerKiwiSaverPercent: 3.5,
@@ -116,6 +116,7 @@ interface AddEventFormProps {
   availableHouses: string[];
   initialGesture?: Gesture;
   persons: Person[];
+  existingSuperCount: number;
 }
 
 function truncateToDay(date: Date): number {
@@ -148,7 +149,7 @@ function FrequencySelect({ value, onChange }: { value: Frequency; onChange: (v: 
   );
 }
 
-export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHouses, initialGesture, persons }: AddEventFormProps) {
+export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHouses, initialGesture, persons, existingSuperCount }: AddEventFormProps) {
   const today = toDateString(startDay);
   const defaultPersonName = persons[0]?.name ?? '';
   const init = stateFromGesture(initialGesture, today, defaultPersonName);
@@ -244,7 +245,11 @@ export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHou
         annualHousePriceGrowthPercent: housePriceGrowth,
       };
     } else if (eventType === 'superannuation') {
-      gesture = { kind: 'start_superannuation', day, personName, livingSituation };
+      const derivedSituation: SuperannuationLivingSituation =
+        persons.length === 1 ? livingSituation
+        : existingSuperCount === 0 ? 'couple_one'
+        : 'couple_both_each';
+      gesture = { kind: 'start_superannuation', day, personName, livingSituation: derivedSituation };
     } else {
       const house = selectedHouse || availableHouses[0];
       if (!house) return;
@@ -340,15 +345,18 @@ export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHou
 
       {eventType === 'superannuation' && (
         <div className="form-row">
-          <Field label="Living situation">
-            <select value={livingSituation} onChange={e => setLivingSituation(e.target.value as SuperannuationLivingSituation)}>
-              <option value="single_alone">Single (living alone) — $555.15/wk</option>
-              <option value="single_sharing">Single (sharing accommodation) — $512.45/wk</option>
-              <option value="couple_both">Couple (both qualify) — $854.08/wk combined</option>
-              <option value="couple_one">Couple (one qualifies) — $812.08/wk</option>
-              <option value="couple_both_each">Couple (both qualify) — $427.04/wk each</option>
-            </select>
-          </Field>
+          {persons.length === 1 ? (
+            <Field label="Living situation">
+              <select value={livingSituation} onChange={e => setLivingSituation(e.target.value as SuperannuationLivingSituation)}>
+                <option value="single_alone">Single (living alone) — $555.15/wk</option>
+                <option value="single_sharing">Single (sharing accommodation) — $512.45/wk</option>
+              </select>
+            </Field>
+          ) : existingSuperCount === 0 ? (
+            <span className="super-rate-info">First to qualify — $812.08/wk (partner not yet eligible)</span>
+          ) : (
+            <span className="super-rate-info">Both qualifying — $427.04/wk each</span>
+          )}
         </div>
       )}
 

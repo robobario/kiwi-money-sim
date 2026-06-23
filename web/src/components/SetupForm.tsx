@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { GlobalConfig, Person } from '../types/form';
 import { simulationYears } from '../types/form';
-import type { Gesture, CreateExistingMortgageGesture, BuyHouseGesture } from '../engine/gestures';
+import type { Gesture, CreateExistingMortgageGesture, BuyHouseGesture, StartSuperannuationGesture } from '../engine/gestures';
 import { AddEventForm } from './AddEventPanel';
 
 interface SetupTabProps {
@@ -98,10 +98,19 @@ export function SetupTab({ config, onConfigChange, timeline, onAddEvent, onUpdat
     .filter((g): g is CreateExistingMortgageGesture | BuyHouseGesture => g.kind === 'create_existing_mortgage' || g.kind === 'buy_house')
     .map(g => g.name);
 
+  const superCount = timeline.filter(g => g.kind === 'start_superannuation').length;
+
   const endDate = new Date(startDay);
   endDate.setUTCFullYear(endDate.getUTCFullYear() + simulationYears(config));
 
   const handleAdd = (gesture: Gesture) => {
+    if (gesture.kind === 'start_superannuation' && config.persons.length > 1 && superCount >= 1) {
+      const idx = timeline.findIndex(g => g.kind === 'start_superannuation');
+      if (idx !== -1) {
+        const existing = timeline[idx] as StartSuperannuationGesture;
+        onUpdateEvent(idx, { ...existing, livingSituation: 'couple_both_each' });
+      }
+    }
     onAddEvent(gesture);
     setShowAddForm(false);
   };
@@ -173,6 +182,7 @@ export function SetupTab({ config, onConfigChange, timeline, onAddEvent, onUpdat
               availableHouses={availableHouses}
               initialGesture={gesture}
               persons={config.persons}
+              existingSuperCount={timeline.filter((g, i) => g.kind === 'start_superannuation' && i !== originalIndex).length}
             />
           ) : (
             <div key={originalIndex} className="timeline-entry">
@@ -185,7 +195,7 @@ export function SetupTab({ config, onConfigChange, timeline, onAddEvent, onUpdat
         )}
 
         {showAddForm ? (
-          <AddEventForm onAdd={handleAdd} startDay={startDay} onCancel={() => setShowAddForm(false)} availableHouses={availableHouses} persons={config.persons} />
+          <AddEventForm onAdd={handleAdd} startDay={startDay} onCancel={() => setShowAddForm(false)} availableHouses={availableHouses} persons={config.persons} existingSuperCount={superCount} />
         ) : editingIndex === null ? (
           <button type="button" className="btn-secondary timeline-add-btn" onClick={() => setShowAddForm(true)}>
             + Add Event
