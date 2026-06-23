@@ -70,7 +70,6 @@ describe('runSimulation', () => {
   });
 
   it('gestures only fire on their specified day', async () => {
-    const day = JAN_1_2024.getTime();
     const futureDay = Date.UTC(2024, 6, 1); // Jul 1 2024
     const gestures: Gesture[] = [
       ...basicGestures(JAN_1_2024),
