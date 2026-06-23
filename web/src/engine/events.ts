@@ -81,10 +81,8 @@ export function applyEvent(world: World, event: Event): World {
       return { ...world, accounts: [...world.accounts, { name: event.name, balance: event.balance, external: event.external ?? false }] };
     }
     case 'register_generator': {
-      if (world.eventGenerators.some(g => g.name === event.name)) {
-        throw new Error(`event generator named ${event.name} exists already`);
-      }
-      return { ...world, eventGenerators: [...world.eventGenerators, event.generator] };
+      const others = world.eventGenerators.filter(g => g.name !== event.name);
+      return { ...world, eventGenerators: [...others, event.generator] };
     }
     case 'create_investment': {
       if (world.investments.some(i => i.name === event.name)) {

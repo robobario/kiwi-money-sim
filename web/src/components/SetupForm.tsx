@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { GlobalConfig } from '../types/form';
+import type { GlobalConfig, Person } from '../types/form';
 import { simulationYears } from '../types/form';
 import type { Gesture, CreateExistingMortgageGesture, BuyHouseGesture } from '../engine/gestures';
 import { AddEventForm } from './AddEventPanel';
@@ -35,7 +35,7 @@ function gestureLabel(g: Gesture): string {
       const freq = ({ first_of_month: 'monthly', fortnightly: 'fortnightly', weekly: 'weekly' } as const)[g.payFrequency];
       const ks = g.kiwiSaverEnabled ? `, KiwiSaver ${g.employeeKiwiSaverPercent}%+${g.employerKiwiSaverPercent}%` : '';
       const inf = g.inflationMatchedPayrise ? ', inflation-matched' : '';
-      return `${g.name}: $${g.annualSalary.toLocaleString()} gross p.a. (${freq}${ks}${inf})`;
+      return `[${g.personName}] ${g.name}: $${g.annualSalary.toLocaleString()} gross p.a. (${freq}${ks}${inf})`;
     }
     case 'create_income':
       return `$${g.amount.toLocaleString()}${formatFreq(g.frequency)} ${g.name} (income${g.inflationLinked ? ', inflation-linked' : ''})`;
@@ -55,8 +55,9 @@ function gestureLabel(g: Gesture): string {
         single_sharing: 'Single (sharing)',
         couple_both: 'Couple (both qualify)',
         couple_one: 'Couple (one qualifies)',
+        couple_both_each: 'Couple (both qualify, per person)',
       };
-      return `NZ Super: ${situationLabels[g.livingSituation] ?? g.livingSituation}`;
+      return `[${g.personName}] NZ Super: ${situationLabels[g.livingSituation] ?? g.livingSituation}`;
     }
     default:
       return g.kind;
@@ -73,6 +74,20 @@ export function SetupTab({ config, onConfigChange, timeline, onAddEvent, onUpdat
 
   const update = <K extends keyof GlobalConfig>(key: K, value: GlobalConfig[K]) => {
     onConfigChange({ ...config, [key]: value });
+  };
+
+  const updatePerson = (index: number, patch: Partial<Person>) => {
+    const persons = config.persons.map((p, i) => i === index ? { ...p, ...patch } : p);
+    onConfigChange({ ...config, persons });
+  };
+
+  const addPerson = () => {
+    onConfigChange({ ...config, persons: [...config.persons, { name: '', currentAge: 30 }] });
+  };
+
+  const removePerson = (index: number) => {
+    if (config.persons.length <= 1) return;
+    onConfigChange({ ...config, persons: config.persons.filter((_, i) => i !== index) });
   };
 
   const sortedEntries = timeline
@@ -104,10 +119,6 @@ export function SetupTab({ config, onConfigChange, timeline, onAddEvent, onUpdat
           <input type="number" value={config.startingCash} onChange={e => update('startingCash', Number(e.target.value))} />
         </label>
         <label>
-          Current age
-          <input type="number" min="1" max="120" value={config.currentAge} onChange={e => update('currentAge', Number(e.target.value))} />
-        </label>
-        <label>
           Simulate to age
           <input type="number" min="1" max="120" value={config.targetAge} onChange={e => update('targetAge', Number(e.target.value))} />
         </label>
@@ -115,6 +126,37 @@ export function SetupTab({ config, onConfigChange, timeline, onAddEvent, onUpdat
           Annual Inflation (%)
           <input type="number" step="0.1" min="0" value={config.inflationRatePercent} onChange={e => update('inflationRatePercent', Number(e.target.value))} />
         </label>
+      </div>
+
+      <div className="household-section">
+        <h3 className="household-heading">Household</h3>
+        {config.persons.map((person, i) => (
+          <div key={i} className="person-row">
+            <input
+              type="text"
+              placeholder="Name"
+              value={person.name}
+              onChange={e => updatePerson(i, { name: e.target.value })}
+            />
+            <label className="person-age-label">
+              Age
+              <input
+                type="number"
+                min="1"
+                max="120"
+                value={person.currentAge}
+                onChange={e => updatePerson(i, { currentAge: Number(e.target.value) })}
+              />
+            </label>
+            <button
+              type="button"
+              className="btn-remove"
+              onClick={() => removePerson(i)}
+              disabled={config.persons.length <= 1}
+            >×</button>
+          </div>
+        ))}
+        <button type="button" className="btn-secondary" onClick={addPerson}>+ Add person</button>
       </div>
 
       <div className="timeline">
@@ -130,7 +172,7 @@ export function SetupTab({ config, onConfigChange, timeline, onAddEvent, onUpdat
               startDay={startDay}
               availableHouses={availableHouses}
               initialGesture={gesture}
-              currentAge={config.currentAge}
+              persons={config.persons}
             />
           ) : (
             <div key={originalIndex} className="timeline-entry">
@@ -143,7 +185,7 @@ export function SetupTab({ config, onConfigChange, timeline, onAddEvent, onUpdat
         )}
 
         {showAddForm ? (
-          <AddEventForm onAdd={handleAdd} startDay={startDay} onCancel={() => setShowAddForm(false)} availableHouses={availableHouses} currentAge={config.currentAge} />
+          <AddEventForm onAdd={handleAdd} startDay={startDay} onCancel={() => setShowAddForm(false)} availableHouses={availableHouses} persons={config.persons} />
         ) : editingIndex === null ? (
           <button type="button" className="btn-secondary timeline-add-btn" onClick={() => setShowAddForm(true)}>
             + Add Event

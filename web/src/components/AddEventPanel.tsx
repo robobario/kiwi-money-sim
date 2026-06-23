@@ -2,11 +2,13 @@ import { useState } from 'react';
 import type { Gesture, SuperannuationLivingSituation } from '../engine/gestures';
 import type { Frequency } from '../engine/events';
 import { CASH_ACCOUNT, INCOME_ACCOUNT } from '../engine/simulation';
+import type { Person } from '../types/form';
 
 type EventType = 'start_job' | 'income' | 'cost' | 'investment' | 'buy_house' | 'mortgage' | 'sell_house' | 'superannuation';
 
 interface FormState {
   eventType: EventType;
+  personName: string;
   name: string;
   startDate: string;
   amount: number;
@@ -36,9 +38,10 @@ interface FormState {
   livingSituation: SuperannuationLivingSituation;
 }
 
-function stateFromGesture(g: Gesture | undefined, today: string): FormState {
+function stateFromGesture(g: Gesture | undefined, today: string, defaultPersonName: string): FormState {
   const defaults: FormState = {
     eventType: 'start_job',
+    personName: defaultPersonName,
     name: '',
     startDate: today,
     amount: 0,
@@ -73,7 +76,7 @@ function stateFromGesture(g: Gesture | undefined, today: string): FormState {
 
   switch (g.kind) {
     case 'start_job':
-      return { ...defaults, eventType: 'start_job', startDate, jobName: g.name, annualSalary: g.annualSalary,
+      return { ...defaults, eventType: 'start_job', startDate, personName: g.personName, jobName: g.name, annualSalary: g.annualSalary,
         payFrequency: g.payFrequency, inflationMatchedPayrise: g.inflationMatchedPayrise,
         kiwiSaverEnabled: g.kiwiSaverEnabled, employeeKiwiSaverPercent: g.employeeKiwiSaverPercent,
         employerKiwiSaverPercent: g.employerKiwiSaverPercent, kiwiSaverGrowthPercent: g.kiwiSaverGrowthPercent };
@@ -99,7 +102,7 @@ function stateFromGesture(g: Gesture | undefined, today: string): FormState {
         useMarketPrice: g.salePriceOverride === undefined, salePrice: g.salePriceOverride ?? 0,
         agentFeePercent: g.agentFeePercent, fixedCosts: g.fixedCosts };
     case 'start_superannuation':
-      return { ...defaults, eventType: 'superannuation', startDate, livingSituation: g.livingSituation };
+      return { ...defaults, eventType: 'superannuation', startDate, personName: g.personName, livingSituation: g.livingSituation };
     default:
       return { ...defaults, startDate };
   }
@@ -112,7 +115,7 @@ interface AddEventFormProps {
   startDay: Date;
   availableHouses: string[];
   initialGesture?: Gesture;
-  currentAge: number;
+  persons: Person[];
 }
 
 function truncateToDay(date: Date): number {
@@ -145,18 +148,21 @@ function FrequencySelect({ value, onChange }: { value: Frequency; onChange: (v: 
   );
 }
 
-export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHouses, initialGesture, currentAge }: AddEventFormProps) {
+export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHouses, initialGesture, persons }: AddEventFormProps) {
   const today = toDateString(startDay);
-  const init = stateFromGesture(initialGesture, today);
+  const defaultPersonName = persons[0]?.name ?? '';
+  const init = stateFromGesture(initialGesture, today, defaultPersonName);
 
-  const superDate = (() => {
+  const superDateForPerson = (pName: string) => {
+    const age = persons.find(p => p.name === pName)?.currentAge ?? 0;
     const d = new Date(startDay);
-    d.setUTCFullYear(d.getUTCFullYear() + Math.max(0, 65 - currentAge));
+    d.setUTCFullYear(d.getUTCFullYear() + Math.max(0, 65 - age));
     d.setUTCHours(0, 0, 0, 0);
     return d.toISOString().slice(0, 10);
-  })();
+  };
 
   const [eventType, setEventType] = useState<EventType>(init.eventType);
+  const [personName, setPersonName] = useState(init.personName);
   const [name, setName] = useState(init.name);
   const [startDate, setStartDate] = useState(init.startDate);
   const [amount, setAmount] = useState(init.amount);
@@ -187,10 +193,17 @@ export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHou
 
   const isEditing = onUpdate !== undefined;
 
+  const handlePersonChange = (pName: string) => {
+    setPersonName(pName);
+    if (eventType === 'superannuation' && !initialGesture) {
+      setStartDate(superDateForPerson(pName));
+    }
+  };
+
   const handleEventTypeChange = (newType: EventType) => {
     setEventType(newType);
     if (newType === 'superannuation' && !initialGesture) {
-      setStartDate(superDate);
+      setStartDate(superDateForPerson(personName));
     }
   };
 
@@ -201,7 +214,7 @@ export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHou
     if (eventType === 'start_job') {
       if (!jobName || annualSalary <= 0) return;
       gesture = {
-        kind: 'start_job', day, name: jobName, annualSalary, payFrequency,
+        kind: 'start_job', day, personName, name: jobName, annualSalary, payFrequency,
         kiwiSaverEnabled, employeeKiwiSaverPercent, employerKiwiSaverPercent, kiwiSaverGrowthPercent,
         inflationMatchedPayrise,
       };
@@ -231,7 +244,7 @@ export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHou
         annualHousePriceGrowthPercent: housePriceGrowth,
       };
     } else if (eventType === 'superannuation') {
-      gesture = { kind: 'start_superannuation', day, livingSituation };
+      gesture = { kind: 'start_superannuation', day, personName, livingSituation };
     } else {
       const house = selectedHouse || availableHouses[0];
       if (!house) return;
@@ -267,6 +280,16 @@ export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHou
           <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
         </Field>
       </div>
+
+      {(eventType === 'start_job' || eventType === 'superannuation') && persons.length > 1 && (
+        <div className="form-row">
+          <Field label="Person">
+            <select value={personName} onChange={e => handlePersonChange(e.target.value)}>
+              {persons.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
+            </select>
+          </Field>
+        </div>
+      )}
 
       {eventType === 'start_job' && (
         <>
@@ -323,6 +346,7 @@ export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHou
               <option value="single_sharing">Single (sharing accommodation) — $512.45/wk</option>
               <option value="couple_both">Couple (both qualify) — $854.08/wk combined</option>
               <option value="couple_one">Couple (one qualifies) — $812.08/wk</option>
+              <option value="couple_both_each">Couple (both qualify) — $427.04/wk each</option>
             </select>
           </Field>
         </div>

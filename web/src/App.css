@@ -65,6 +65,50 @@ h1 {
   width: 140px;
 }
 
+/* ── Household ── */
+
+.household-section {
+  margin-top: 1rem;
+}
+
+.household-heading {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+  color: #374151;
+}
+
+.person-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.person-row input[type="text"] {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  width: 160px;
+}
+
+.person-age-label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+.person-age-label input[type="number"] {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  width: 70px;
+}
+
 /* ── Timeline ── */
 
 .timeline {

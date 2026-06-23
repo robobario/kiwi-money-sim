@@ -85,8 +85,8 @@ describe('applyEvent', () => {
       expect(result.eventGenerators[0].name).toBe('salary');
     });
 
-    it('throws on duplicate generator name', () => {
-      const gen = {
+    it('replaces existing generator with same name (upsert)', () => {
+      const original = {
         kind: 'repeat_transfer' as const,
         name: 'salary',
         startDay: Date.UTC(2024, 0, 1),
@@ -95,10 +95,13 @@ describe('applyEvent', () => {
         amount: 5000,
         frequency: 'first_of_month' as const,
       };
-      const world: World = { ...emptyWorld(), eventGenerators: [gen] };
-      expect(() =>
-        applyEvent(world, { kind: 'register_generator', name: 'salary', generator: gen })
-      ).toThrow('event generator named salary exists already');
+      const replacement = { ...original, amount: 6000 };
+      const world: World = { ...emptyWorld(), eventGenerators: [original] };
+      const result = applyEvent(world, { kind: 'register_generator', name: 'salary', generator: replacement });
+      expect(result.eventGenerators).toHaveLength(1);
+      if (result.eventGenerators[0].kind === 'repeat_transfer') {
+        expect(result.eventGenerators[0].amount).toBe(6000);
+      }
     });
   });
 

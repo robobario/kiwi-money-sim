@@ -75,6 +75,7 @@ export interface BuyHouseGesture {
 export interface StartJobGesture {
   readonly kind: 'start_job';
   readonly day: number;
+  readonly personName: string;
   readonly name: string;
   readonly annualSalary: number;
   readonly payFrequency: 'weekly' | 'fortnightly' | 'first_of_month';
@@ -94,11 +95,12 @@ export interface SellHouseGesture {
   readonly fixedCosts: number;
 }
 
-export type SuperannuationLivingSituation = 'single_alone' | 'single_sharing' | 'couple_both' | 'couple_one';
+export type SuperannuationLivingSituation = 'single_alone' | 'single_sharing' | 'couple_both' | 'couple_one' | 'couple_both_each';
 
 export interface StartSuperannuationGesture {
   readonly kind: 'start_superannuation';
   readonly day: number;
+  readonly personName: string;
   readonly livingSituation: SuperannuationLivingSituation;
 }
 
@@ -338,17 +340,19 @@ export function gestureEvents(gesture: Gesture, world?: World): Event[] {
 
     case 'start_superannuation': {
       const weeklyRates: Record<SuperannuationLivingSituation, number> = {
-        single_alone: 555.15,
-        single_sharing: 512.45,
-        couple_both: 854.08,
-        couple_one: 812.08,
+        single_alone:     555.15,
+        single_sharing:   512.45,
+        couple_both:      854.08,
+        couple_one:       812.08,
+        couple_both_each: 427.04,
       };
+      const generatorName = `${gesture.personName}-super`;
       return [{
         kind: 'register_generator',
-        name: 'superannuation',
+        name: generatorName,
         generator: {
           kind: 'repeat_transfer',
-          name: 'superannuation',
+          name: generatorName,
           startDay: gesture.day,
           from: 'income',
           to: 'cash',
