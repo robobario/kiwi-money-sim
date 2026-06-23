@@ -55,6 +55,7 @@ export interface CreatePeriodicInvestmentGesture {
   readonly day: number;
   readonly name: string;
   readonly initialAmount?: number;
+  readonly initialFromExternal?: boolean;
   readonly periodAmount: number;
   readonly frequency: Frequency;
   readonly annualGrowthPercent: number;
@@ -112,6 +113,13 @@ export interface CashGiftGesture {
   readonly amount: number;
 }
 
+export interface ChangeRecurringBuyGesture {
+  readonly kind: 'change_recurring_buy';
+  readonly day: number;
+  readonly investmentName: string;
+  readonly newPeriodAmount: number;
+}
+
 export interface EndJobGesture {
   readonly kind: 'end_job';
   readonly day: number;
@@ -146,6 +154,7 @@ export type Gesture =
   | EndJobGesture
   | RetireGesture
   | StartDrawdownGesture
+  | ChangeRecurringBuyGesture
   | SellHouseGesture
   | StartSuperannuationGesture
   | CashGiftGesture;
@@ -221,7 +230,8 @@ export function gestureEvents(gesture: Gesture, world?: World): Event[] {
         },
       ];
       if (gesture.initialAmount && gesture.initialAmount > 0) {
-        events.push({ kind: 'buy_investment_units', investmentName: gesture.name, cashAmount: gesture.initialAmount, fromAccount: gesture.fromAccount });
+        const initialFrom = gesture.initialFromExternal ? 'income' : gesture.fromAccount;
+        events.push({ kind: 'buy_investment_units', investmentName: gesture.name, cashAmount: gesture.initialAmount, fromAccount: initialFrom });
       }
       if (gesture.periodAmount > 0) {
         events.push({
@@ -351,6 +361,30 @@ export function gestureEvents(gesture: Gesture, world?: World): Event[] {
           toAccount: 'cash',
           inflationLinked: gesture.inflationLinked,
           baseInflationIndex,
+        },
+      }];
+    }
+
+    case 'change_recurring_buy': {
+      const generatorName = `${gesture.investmentName}-buy`;
+      if (gesture.newPeriodAmount === 0) {
+        return [{ kind: 'deregister_generator', name: generatorName }];
+      }
+      const existing = world?.eventGenerators.find(g => g.name === generatorName);
+      if (existing && existing.kind === 'periodic_buy_investment') {
+        return [{ kind: 'register_generator', name: generatorName, generator: { ...existing, cashAmount: gesture.newPeriodAmount } }];
+      }
+      return [{
+        kind: 'register_generator',
+        name: generatorName,
+        generator: {
+          kind: 'periodic_buy_investment',
+          name: generatorName,
+          startDay: gesture.day,
+          investmentName: gesture.investmentName,
+          cashAmount: gesture.newPeriodAmount,
+          fromAccount: 'cash',
+          frequency: 'first_of_month',
         },
       }];
     }

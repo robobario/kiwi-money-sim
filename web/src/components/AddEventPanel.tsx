@@ -4,7 +4,7 @@ import type { Frequency } from '../engine/events';
 import { CASH_ACCOUNT, INCOME_ACCOUNT } from '../engine/simulation';
 import type { Person } from '../types/form';
 
-type EventType = 'start_job' | 'end_job' | 'retire' | 'drawdown' | 'income' | 'cost' | 'investment' | 'buy_house' | 'mortgage' | 'sell_house' | 'superannuation' | 'cash_gift';
+type EventType = 'start_job' | 'end_job' | 'retire' | 'drawdown' | 'change_recurring_buy' | 'income' | 'cost' | 'investment' | 'buy_house' | 'mortgage' | 'sell_house' | 'superannuation' | 'cash_gift';
 
 interface FormState {
   eventType: EventType;
@@ -33,6 +33,7 @@ interface FormState {
   selectedHouse: string;
   selectedJobName: string;
   initialBuyAmount: number;
+  initialFromExternal: boolean;
   drawdownInvestment: string;
   drawdownMode: 'percent' | 'fixed';
   drawdownPercent: number;
@@ -73,6 +74,7 @@ function stateFromGesture(g: Gesture | undefined, today: string, defaultPersonNa
     selectedHouse: '',
     selectedJobName: '',
     initialBuyAmount: 0,
+    initialFromExternal: false,
     drawdownInvestment: '',
     drawdownMode: 'percent',
     drawdownPercent: 4,
@@ -102,8 +104,8 @@ function stateFromGesture(g: Gesture | undefined, today: string, defaultPersonNa
         frequency: g.frequency, inflationLinked: !!g.inflationLinked };
     case 'create_periodic_investment':
       return { ...defaults, eventType: 'investment', startDate, name: g.name,
-        initialBuyAmount: g.initialAmount ?? 0, amount: g.periodAmount,
-        frequency: g.frequency, annualGrowthPercent: g.annualGrowthPercent };
+        initialBuyAmount: g.initialAmount ?? 0, initialFromExternal: g.initialFromExternal ?? false,
+        amount: g.periodAmount, frequency: g.frequency, annualGrowthPercent: g.annualGrowthPercent };
     case 'buy_house':
       return { ...defaults, eventType: 'buy_house', startDate, mortgageName: g.name,
         houseValue: g.housePrice, deposit: g.deposit, interestRate: g.annualRatePercent,
@@ -127,6 +129,8 @@ function stateFromGesture(g: Gesture | undefined, today: string, defaultPersonNa
       return { ...defaults, eventType: 'end_job', startDate, personName: g.personName, selectedJobName: g.jobName };
     case 'retire':
       return { ...defaults, eventType: 'retire', startDate, personName: g.personName };
+    case 'change_recurring_buy':
+      return { ...defaults, eventType: 'change_recurring_buy', startDate, drawdownInvestment: g.investmentName, amount: g.newPeriodAmount };
     case 'cash_gift':
       return { ...defaults, eventType: 'cash_gift', startDate, amount: g.amount };
     default:
@@ -215,6 +219,7 @@ export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHou
   const [selectedHouse, setSelectedHouse] = useState(init.selectedHouse);
   const [selectedJobName, setSelectedJobName] = useState(init.selectedJobName);
   const [initialBuyAmount, setInitialBuyAmount] = useState(init.initialBuyAmount);
+  const [initialFromExternal, setInitialFromExternal] = useState(init.initialFromExternal);
   const [drawdownInvestment, setDrawdownInvestment] = useState(init.drawdownInvestment);
   const [drawdownMode, setDrawdownMode] = useState<'percent' | 'fixed'>(init.drawdownMode);
   const [drawdownPercent, setDrawdownPercent] = useState(init.drawdownPercent);
@@ -227,6 +232,9 @@ export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHou
   const [livingSituation, setLivingSituation] = useState<SuperannuationLivingSituation>(init.livingSituation);
 
   const isEditing = onUpdate !== undefined;
+
+  const originalHouseName = initialGesture?.kind === 'buy_house' || initialGesture?.kind === 'create_existing_mortgage'
+    ? initialGesture.name : undefined;
 
   const handlePersonChange = (pName: string) => {
     setPersonName(pName);
@@ -261,9 +269,10 @@ export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHou
       gesture = { kind: 'create_repeat_cost', day, name, frequency, amount, fromAccount: CASH_ACCOUNT, inflationLinked };
     } else if (eventType === 'investment') {
       if (!name || (initialBuyAmount <= 0 && amount <= 0)) return;
-      gesture = { kind: 'create_periodic_investment', day, name, frequency, initialAmount: initialBuyAmount || undefined, periodAmount: amount, annualGrowthPercent, fromAccount: CASH_ACCOUNT };
+      gesture = { kind: 'create_periodic_investment', day, name, frequency, initialAmount: initialBuyAmount || undefined, initialFromExternal: initialFromExternal || undefined, periodAmount: amount, annualGrowthPercent, fromAccount: CASH_ACCOUNT };
     } else if (eventType === 'buy_house') {
       if (houseValue <= 0 || deposit < 0 || deposit >= houseValue) return;
+      if (availableHouses.includes(mortgageName) && mortgageName !== originalHouseName) return;
       gesture = {
         kind: 'buy_house', day, name: mortgageName,
         housePrice: houseValue, deposit, annualRatePercent: interestRate,
@@ -272,6 +281,7 @@ export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHou
       };
     } else if (eventType === 'mortgage') {
       if (principal <= 0 || houseValue <= 0) return;
+      if (availableHouses.includes(mortgageName) && mortgageName !== originalHouseName) return;
       gesture = {
         kind: 'create_existing_mortgage', day, name: mortgageName,
         principal, assetValue: houseValue, annualRatePercent: interestRate,
@@ -294,6 +304,10 @@ export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHou
       gesture = { kind: 'end_job', day, personName, jobName };
     } else if (eventType === 'retire') {
       gesture = { kind: 'retire', day, personName };
+    } else if (eventType === 'change_recurring_buy') {
+      const investmentName = drawdownInvestment || availableInvestments[0];
+      if (!investmentName) return;
+      gesture = { kind: 'change_recurring_buy', day, investmentName, newPeriodAmount: amount };
     } else if (eventType === 'cash_gift') {
       if (amount <= 0) return;
       gesture = { kind: 'cash_gift', day, amount };
@@ -325,11 +339,12 @@ export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHou
             <option value="end_job">End Job</option>
             <option value="retire">Retire</option>
             <option value="drawdown">Start Recurring Drawdown</option>
+            <option value="change_recurring_buy">Change Recurring Buy</option>
             <option value="superannuation">Start NZ Super</option>
             <option value="cash_gift">Receive Cash Gift</option>
             <option value="income">Recurring Income</option>
             <option value="cost">Recurring Cost</option>
-            <option value="investment">Periodic Investment</option>
+            <option value="investment">Buy Investment</option>
             <option value="buy_house">Buy House</option>
             <option value="mortgage">Existing Mortgage &amp; House</option>
             <option value="sell_house">Sell House</option>
@@ -457,6 +472,23 @@ export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHou
         )
       )}
 
+      {eventType === 'change_recurring_buy' && (
+        availableInvestments.length === 0 ? (
+          <p style={{ color: '#6b7280', fontSize: '0.9rem' }}>No investments found — add a Buy Investment event first.</p>
+        ) : (
+          <div className="form-row">
+            <Field label="Investment">
+              <select value={drawdownInvestment || availableInvestments[0]} onChange={e => setDrawdownInvestment(e.target.value)}>
+                {availableInvestments.map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </Field>
+            <Field label="New recurring amount ($, 0 to stop)">
+              <input type="number" min="0" value={amount} onChange={e => setAmount(Number(e.target.value))} />
+            </Field>
+          </div>
+        )
+      )}
+
       {eventType === 'superannuation' && (
         <div className="form-row">
           {persons.length === 1 ? (
@@ -509,6 +541,14 @@ export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHou
             <Field label="Initial purchase ($)">
               <input type="number" min="0" value={initialBuyAmount} onChange={e => setInitialBuyAmount(Number(e.target.value))} />
             </Field>
+            {initialBuyAmount > 0 && (
+              <Field label=" ">
+                <label className="checkbox-label">
+                  <input type="checkbox" checked={initialFromExternal} onChange={e => setInitialFromExternal(e.target.checked)} />
+                  No cash deducted (gift / existing holding)
+                </label>
+              </Field>
+            )}
             <Field label="Growth (% p.a.)">
               <input type="number" step="0.1" min="0" value={annualGrowthPercent} onChange={e => setAnnualGrowthPercent(Number(e.target.value))} />
             </Field>
@@ -531,6 +571,9 @@ export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHou
           <div className="form-row">
             <Field label="Name">
               <input type="text" value={mortgageName} onChange={e => setMortgageName(e.target.value)} />
+              {availableHouses.includes(mortgageName) && mortgageName !== originalHouseName && (
+                <span style={{ color: '#dc2626', fontSize: '0.8rem' }}>Name already in use — choose a different name</span>
+              )}
             </Field>
             <Field label="Purchase price ($)">
               <input type="number" min="0" value={houseValue} onChange={e => setHouseValue(Number(e.target.value))} />
@@ -563,6 +606,9 @@ export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHou
           <div className="form-row">
             <Field label="Name">
               <input type="text" value={mortgageName} onChange={e => setMortgageName(e.target.value)} />
+              {availableHouses.includes(mortgageName) && mortgageName !== originalHouseName && (
+                <span style={{ color: '#dc2626', fontSize: '0.8rem' }}>Name already in use — choose a different name</span>
+              )}
             </Field>
             <Field label="Principal ($)">
               <input type="number" min="0" value={principal} onChange={e => setPrincipal(Number(e.target.value))} />

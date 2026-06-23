@@ -426,6 +426,21 @@ describe('create_periodic_investment gesture', () => {
     }
   });
 
+  it('with initialFromExternal: initial buy draws from income, not cash', () => {
+    const events = gestureEvents({
+      kind: 'create_periodic_investment',
+      day: JAN_1_2024,
+      name: 'index-fund',
+      initialAmount: 50000,
+      initialFromExternal: true,
+      periodAmount: 0,
+      frequency: 'first_of_month',
+      annualGrowthPercent: 7,
+      fromAccount: 'cash',
+    });
+    expect(events[2]).toMatchObject({ kind: 'buy_investment_units', cashAmount: 50000, fromAccount: 'income' });
+  });
+
   it('with both initial and recurring: produces four events', () => {
     const events = gestureEvents({
       kind: 'create_periodic_investment',
@@ -440,6 +455,52 @@ describe('create_periodic_investment gesture', () => {
     expect(events).toHaveLength(4);
     expect(events[2]).toMatchObject({ kind: 'buy_investment_units', cashAmount: 50000 });
     expect(events[3]).toMatchObject({ kind: 'register_generator', name: 'index-fund-buy' });
+  });
+});
+
+describe('change_recurring_buy gesture', () => {
+  const existingGenerator = {
+    kind: 'periodic_buy_investment' as const,
+    name: 'index-fund-buy',
+    startDay: JAN_1_2024,
+    investmentName: 'index-fund',
+    cashAmount: 500,
+    fromAccount: 'cash',
+    frequency: 'first_of_month' as const,
+  };
+
+  const world = {
+    currentDay: JAN_1_2024,
+    accounts: [],
+    eventGenerators: [existingGenerator],
+    eventHistory: [],
+    investments: [],
+    inflationIndex: 1,
+  };
+
+  it('with zero amount: deregisters the buy generator', () => {
+    const events = gestureEvents({ kind: 'change_recurring_buy', day: JAN_1_2024, investmentName: 'index-fund', newPeriodAmount: 0 }, world);
+    expect(events).toEqual([{ kind: 'deregister_generator', name: 'index-fund-buy' }]);
+  });
+
+  it('with non-zero amount: upserts generator preserving frequency and fromAccount', () => {
+    const events = gestureEvents({ kind: 'change_recurring_buy', day: JAN_1_2024, investmentName: 'index-fund', newPeriodAmount: 1000 }, world);
+    expect(events).toHaveLength(1);
+    expect(events[0].kind).toBe('register_generator');
+    if (events[0].kind === 'register_generator' && events[0].generator.kind === 'periodic_buy_investment') {
+      expect(events[0].generator.cashAmount).toBe(1000);
+      expect(events[0].generator.frequency).toBe('first_of_month');
+      expect(events[0].generator.fromAccount).toBe('cash');
+    }
+  });
+
+  it('without existing generator: creates a new one with defaults', () => {
+    const events = gestureEvents({ kind: 'change_recurring_buy', day: JAN_1_2024, investmentName: 'index-fund', newPeriodAmount: 200 });
+    expect(events).toHaveLength(1);
+    expect(events[0].kind).toBe('register_generator');
+    if (events[0].kind === 'register_generator' && events[0].generator.kind === 'periodic_buy_investment') {
+      expect(events[0].generator.cashAmount).toBe(200);
+    }
   });
 });
 

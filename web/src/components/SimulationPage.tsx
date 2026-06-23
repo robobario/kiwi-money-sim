@@ -1,28 +1,27 @@
+import React from 'react';
 import type { SimulationResult } from '../engine/simulation';
 import { ChartView } from './ChartView';
 
 interface SimulationPageProps {
   result: SimulationResult;
-  mortgageName: string | undefined;
+  mortgageNames: string[];
 }
 
 function formatDollar(value: number): string {
   return '$' + Math.round(value).toLocaleString();
 }
 
-export function SimulationPage({ result, mortgageName }: SimulationPageProps) {
+export function SimulationPage({ result, mortgageNames }: SimulationPageProps) {
   const finalBalances = result.finalWorld.accounts;
   const finalInvestments = result.finalWorld.investments;
   const externalAccountNames = finalBalances.filter(a => a.external).map(a => a.name);
   const cashBalance = finalBalances.find(a => a.name === 'cash')?.balance ?? 0;
-  const houseInvestmentKey = mortgageName ? `${mortgageName}-house` : undefined;
+  const houseInvestmentKeys = new Set(mortgageNames.map(n => `${n}-house`));
   const investmentTotal = finalInvestments.reduce((sum, i) => sum + i.unitsHeld * i.indexPrice, 0);
   const netWorth = finalBalances
     .filter(a => !a.external)
     .reduce((sum, a) => sum + a.balance, 0) + investmentTotal;
-  const displayInvestments = finalInvestments.filter(i => i.name !== houseInvestmentKey);
-  const houseInvestment = houseInvestmentKey ? finalInvestments.find(i => i.name === houseInvestmentKey) : undefined;
-  const houseValue = houseInvestment ? houseInvestment.unitsHeld * houseInvestment.indexPrice : 0;
+  const displayInvestments = finalInvestments.filter(i => !houseInvestmentKeys.has(i.name));
 
   const firstNegativeCash = result.snapshots.find(s => (s.balances['cash'] ?? 0) < 0);
 
@@ -37,20 +36,23 @@ export function SimulationPage({ result, mortgageName }: SimulationPageProps) {
           <span className="stat-label">Final Net Worth</span>
           <span className="stat-value">{formatDollar(netWorth)}</span>
         </div>
-        {mortgageName && (
-          <>
-            <div className="stat">
-              <span className="stat-label">House Value</span>
-              <span className="stat-value">{formatDollar(houseValue)}</span>
-            </div>
-            <div className="stat">
-              <span className="stat-label">Mortgage Remaining</span>
-              <span className="stat-value">
-                {formatDollar(finalBalances.find(a => a.name === `${mortgageName}-mortgage`)?.balance ?? 0)}
-              </span>
-            </div>
-          </>
-        )}
+        {mortgageNames.map(name => {
+          const inv = finalInvestments.find(i => i.name === `${name}-house`);
+          const houseValue = inv ? inv.unitsHeld * inv.indexPrice : 0;
+          const mortgageBalance = finalBalances.find(a => a.name === `${name}-mortgage`)?.balance ?? 0;
+          return (
+            <React.Fragment key={name}>
+              <div className="stat">
+                <span className="stat-label">{name} value</span>
+                <span className="stat-value">{formatDollar(houseValue)}</span>
+              </div>
+              <div className="stat">
+                <span className="stat-label">{name} mortgage</span>
+                <span className="stat-value">{formatDollar(mortgageBalance)}</span>
+              </div>
+            </React.Fragment>
+          );
+        })}
         {displayInvestments.map(inv => (
           <div className="stat" key={inv.name}>
             <span className="stat-label">{inv.name}</span>
@@ -62,7 +64,7 @@ export function SimulationPage({ result, mortgageName }: SimulationPageProps) {
         ))}
       </div>
 
-      <ChartView snapshots={result.snapshots} mortgageName={mortgageName} externalAccountNames={externalAccountNames} />
+      <ChartView snapshots={result.snapshots} mortgageNames={mortgageNames} externalAccountNames={externalAccountNames} />
 
       {firstNegativeCash && (
         <p className="warning">

@@ -48,8 +48,9 @@ export default function App() {
     }
   };
 
-  const mortgageGesture = timeline.find(g => g.kind === 'create_existing_mortgage');
-  const mortgageName = mortgageGesture?.kind === 'create_existing_mortgage' ? mortgageGesture.name : undefined;
+  const mortgageNames = timeline
+    .filter(g => g.kind === 'create_existing_mortgage' || g.kind === 'buy_house')
+    .map(g => (g as { name: string }).name);
 
   return (
     <div className="app">
@@ -90,7 +91,7 @@ export default function App() {
         </div>
       )}
       {activeTab === 'results' && progress === null && result && (
-        <SimulationPage result={result} mortgageName={mortgageName} />
+        <SimulationPage result={result} mortgageNames={mortgageNames} />
       )}
       {activeTab === 'results' && progress === null && !result && (
         <p className="empty-results">Switch to Setup, add some events, then come back to see results.</p>

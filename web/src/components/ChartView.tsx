@@ -17,7 +17,7 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, T
 
 interface ChartViewProps {
   snapshots: Snapshot[];
-  mortgageName?: string;
+  mortgageNames?: string[];
   externalAccountNames?: string[];
 }
 
@@ -64,16 +64,16 @@ function chartOptions() {
   };
 }
 
-export function ChartView({ snapshots, mortgageName, externalAccountNames = [] }: ChartViewProps) {
+export function ChartView({ snapshots, mortgageNames = [], externalAccountNames = [] }: ChartViewProps) {
   const [realTerms, setRealTerms] = useState(false);
 
   const adj = (s: Snapshot, value: number) => realTerms ? value / s.inflationIndex : value;
 
   const labels = snapshots.map(s => formatDate(s.day));
 
-  const houseInvestmentKey = mortgageName ? `${mortgageName}-house` : undefined;
+  const houseInvestmentKeys = new Set(mortgageNames.map(n => `${n}-house`));
   const investmentNames = snapshots.length > 0
-    ? Object.keys(snapshots[0].investmentValues ?? {}).filter(n => n !== houseInvestmentKey)
+    ? Object.keys(snapshots[0].investmentValues ?? {}).filter(n => !houseInvestmentKeys.has(n))
     : [];
 
   const costAccountNames = externalAccountNames.filter(n =>
@@ -102,20 +102,27 @@ export function ChartView({ snapshots, mortgageName, externalAccountNames = [] }
     { label: 'Cash',      data: cash,     borderColor: '#3b82f6', backgroundColor: '#3b82f620', pointRadius: 0, tension: 0 },
   ];
 
-  if (mortgageName) {
-    const mortgageKey = `${mortgageName}-mortgage`;
-    const houseKey    = `${mortgageName}-house`;
+  const MORTGAGE_COLORS = ['#ef4444', '#b91c1c'];
+  const EQUITY_COLORS   = ['#f97316', '#c2410c'];
+  mortgageNames.forEach((name, idx) => {
+    const mortgageKey = `${name}-mortgage`;
+    const houseKey    = `${name}-house`;
+    const prefix = mortgageNames.length > 1 ? `${name} ` : '';
     mainDatasets.push({
-      label: 'Mortgage Balance',
+      label: `${prefix}Mortgage Balance`,
       data: snapshots.map(s => adj(s, s.balances[mortgageKey] ?? 0)),
-      borderColor: '#ef4444', backgroundColor: '#ef444420', pointRadius: 0, tension: 0,
+      borderColor: MORTGAGE_COLORS[idx % MORTGAGE_COLORS.length],
+      backgroundColor: MORTGAGE_COLORS[idx % MORTGAGE_COLORS.length] + '20',
+      pointRadius: 0, tension: 0,
     });
     mainDatasets.push({
-      label: 'House Equity',
+      label: `${prefix}House Equity`,
       data: snapshots.map(s => adj(s, ((s.investmentValues ?? {})[houseKey] ?? 0) + (s.balances[mortgageKey] ?? 0))),
-      borderColor: '#f97316', backgroundColor: '#f9731620', pointRadius: 0, tension: 0,
+      borderColor: EQUITY_COLORS[idx % EQUITY_COLORS.length],
+      backgroundColor: EQUITY_COLORS[idx % EQUITY_COLORS.length] + '20',
+      pointRadius: 0, tension: 0,
     });
-  }
+  });
 
   investmentNames.forEach((name, idx) => {
     const color = INVESTMENT_COLORS[idx % INVESTMENT_COLORS.length];

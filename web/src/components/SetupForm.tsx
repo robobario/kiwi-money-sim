@@ -63,6 +63,10 @@ function gestureLabel(g: Gesture): string {
       return `[${g.personName}] End job: ${g.jobName}`;
     case 'retire':
       return `[${g.personName}] Retire`;
+    case 'change_recurring_buy':
+      return g.newPeriodAmount === 0
+        ? `Stop recurring buy: ${g.investmentName}`
+        : `Change recurring buy: ${g.investmentName} → $${g.newPeriodAmount.toLocaleString()}/period`;
     case 'cash_gift':
       return `Cash gift: $${g.amount.toLocaleString()}`;
     case 'start_superannuation': {
