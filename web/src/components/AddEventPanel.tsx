@@ -4,7 +4,7 @@ import type { Frequency } from '../engine/events';
 import { CASH_ACCOUNT, INCOME_ACCOUNT } from '../engine/simulation';
 import type { Person } from '../types/form';
 
-type EventType = 'start_job' | 'income' | 'cost' | 'investment' | 'buy_house' | 'mortgage' | 'sell_house' | 'superannuation';
+type EventType = 'start_job' | 'end_job' | 'retire' | 'income' | 'cost' | 'investment' | 'buy_house' | 'mortgage' | 'sell_house' | 'superannuation';
 
 interface FormState {
   eventType: EventType;
@@ -31,6 +31,7 @@ interface FormState {
   kiwiSaverGrowthPercent: number;
   deposit: number;
   selectedHouse: string;
+  selectedJobName: string;
   useMarketPrice: boolean;
   salePrice: number;
   agentFeePercent: number;
@@ -64,6 +65,7 @@ function stateFromGesture(g: Gesture | undefined, today: string, defaultPersonNa
     kiwiSaverGrowthPercent: 5,
     deposit: 0,
     selectedHouse: '',
+    selectedJobName: '',
     useMarketPrice: true,
     salePrice: 0,
     agentFeePercent: 2.5,
@@ -103,6 +105,10 @@ function stateFromGesture(g: Gesture | undefined, today: string, defaultPersonNa
         agentFeePercent: g.agentFeePercent, fixedCosts: g.fixedCosts };
     case 'start_superannuation':
       return { ...defaults, eventType: 'superannuation', startDate, personName: g.personName, livingSituation: g.livingSituation };
+    case 'end_job':
+      return { ...defaults, eventType: 'end_job', startDate, personName: g.personName, selectedJobName: g.jobName };
+    case 'retire':
+      return { ...defaults, eventType: 'retire', startDate, personName: g.personName };
     default:
       return { ...defaults, startDate };
   }
@@ -114,9 +120,9 @@ interface AddEventFormProps {
   onCancel: () => void;
   startDay: Date;
   availableHouses: string[];
+  availableJobs: { personName: string; jobName: string }[];
   initialGesture?: Gesture;
   persons: Person[];
-  existingSuperCount: number;
 }
 
 function truncateToDay(date: Date): number {
@@ -149,7 +155,7 @@ function FrequencySelect({ value, onChange }: { value: Frequency; onChange: (v: 
   );
 }
 
-export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHouses, initialGesture, persons, existingSuperCount }: AddEventFormProps) {
+export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHouses, availableJobs, initialGesture, persons }: AddEventFormProps) {
   const today = toDateString(startDay);
   const defaultPersonName = persons[0]?.name ?? '';
   const init = stateFromGesture(initialGesture, today, defaultPersonName);
@@ -186,6 +192,7 @@ export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHou
   const [kiwiSaverGrowthPercent, setKiwiSaverGrowthPercent] = useState(init.kiwiSaverGrowthPercent);
   const [deposit, setDeposit] = useState(init.deposit);
   const [selectedHouse, setSelectedHouse] = useState(init.selectedHouse);
+  const [selectedJobName, setSelectedJobName] = useState(init.selectedJobName);
   const [useMarketPrice, setUseMarketPrice] = useState(init.useMarketPrice);
   const [salePrice, setSalePrice] = useState(init.salePrice);
   const [agentFeePercent, setAgentFeePercent] = useState(init.agentFeePercent);
@@ -196,14 +203,14 @@ export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHou
 
   const handlePersonChange = (pName: string) => {
     setPersonName(pName);
-    if (eventType === 'superannuation' && !initialGesture) {
+    if ((eventType === 'superannuation' || eventType === 'retire') && !initialGesture) {
       setStartDate(superDateForPerson(pName));
     }
   };
 
   const handleEventTypeChange = (newType: EventType) => {
     setEventType(newType);
-    if (newType === 'superannuation' && !initialGesture) {
+    if ((newType === 'superannuation' || newType === 'retire') && !initialGesture) {
       setStartDate(superDateForPerson(personName));
     }
   };
@@ -244,11 +251,14 @@ export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHou
         interestFrequency: 'first_of_month', termYears, paymentFromAccount: CASH_ACCOUNT,
         annualHousePriceGrowthPercent: housePriceGrowth,
       };
+    } else if (eventType === 'end_job') {
+      const jobName = selectedJobName || availableJobs.filter(j => j.personName === personName)[0]?.jobName;
+      if (!jobName) return;
+      gesture = { kind: 'end_job', day, personName, jobName };
+    } else if (eventType === 'retire') {
+      gesture = { kind: 'retire', day, personName };
     } else if (eventType === 'superannuation') {
-      const derivedSituation: SuperannuationLivingSituation =
-        persons.length === 1 ? livingSituation
-        : existingSuperCount === 0 ? 'couple_one'
-        : 'couple_both_each';
+      const derivedSituation: SuperannuationLivingSituation = persons.length === 1 ? livingSituation : 'couple';
       gesture = { kind: 'start_superannuation', day, personName, livingSituation: derivedSituation };
     } else {
       const house = selectedHouse || availableHouses[0];
@@ -272,6 +282,8 @@ export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHou
         <Field label="Event type">
           <select value={eventType} onChange={e => handleEventTypeChange(e.target.value as EventType)}>
             <option value="start_job">Start Job</option>
+            <option value="end_job">End Job</option>
+            <option value="retire">Retire</option>
             <option value="superannuation">Start NZ Super</option>
             <option value="income">Recurring Income</option>
             <option value="cost">Recurring Cost</option>
@@ -286,7 +298,7 @@ export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHou
         </Field>
       </div>
 
-      {(eventType === 'start_job' || eventType === 'superannuation') && persons.length > 1 && (
+      {(eventType === 'start_job' || eventType === 'superannuation' || eventType === 'end_job' || eventType === 'retire') && persons.length > 1 && (
         <div className="form-row">
           <Field label="Person">
             <select value={personName} onChange={e => handlePersonChange(e.target.value)}>
@@ -343,19 +355,36 @@ export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHou
         </>
       )}
 
+      {eventType === 'end_job' && (() => {
+        const personJobs = availableJobs.filter(j => j.personName === personName);
+        return personJobs.length === 0 ? (
+          <p style={{ color: '#6b7280', fontSize: '0.9rem' }}>No jobs found for {personName} — add a Start Job event first.</p>
+        ) : (
+          <div className="form-row">
+            <Field label="Job">
+              <select value={selectedJobName || personJobs[0].jobName} onChange={e => setSelectedJobName(e.target.value)}>
+                {personJobs.map(j => <option key={j.jobName} value={j.jobName}>{j.jobName}</option>)}
+              </select>
+            </Field>
+          </div>
+        );
+      })()}
+
+      {eventType === 'retire' && (
+        <p style={{ color: '#6b7280', fontSize: '0.9rem' }}>Ends all active jobs for {personName} on this date.</p>
+      )}
+
       {eventType === 'superannuation' && (
         <div className="form-row">
           {persons.length === 1 ? (
             <Field label="Living situation">
               <select value={livingSituation} onChange={e => setLivingSituation(e.target.value as SuperannuationLivingSituation)}>
-                <option value="single_alone">Single (living alone) — $555.15/wk</option>
-                <option value="single_sharing">Single (sharing accommodation) — $512.45/wk</option>
+                <option value="single_alone">Single (living alone) — $1,294.74/fortnight</option>
+                <option value="single_sharing">Single (sharing accommodation) — $1,191.14/fortnight</option>
               </select>
             </Field>
-          ) : existingSuperCount === 0 ? (
-            <span className="super-rate-info">First to qualify — $812.08/wk (partner not yet eligible)</span>
           ) : (
-            <span className="super-rate-info">Both qualifying — $427.04/wk each</span>
+            <span className="super-rate-info">Couple — $984.28/fortnight each</span>
           )}
         </div>
       )}

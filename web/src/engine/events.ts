@@ -24,6 +24,11 @@ export interface RegisterGeneratorEvent {
   readonly generator: EventGenerator;
 }
 
+export interface DeregisterGeneratorEvent {
+  readonly kind: 'deregister_generator';
+  readonly name: string;
+}
+
 export interface CreateInvestmentEvent {
   readonly kind: 'create_investment';
   readonly name: string;
@@ -58,6 +63,7 @@ export type Event =
   | TransferEvent
   | CreateAccountEvent
   | RegisterGeneratorEvent
+  | DeregisterGeneratorEvent
   | CreateInvestmentEvent
   | UpdateIndexPriceEvent
   | BuyInvestmentUnitsEvent
@@ -84,6 +90,8 @@ export function applyEvent(world: World, event: Event): World {
       const others = world.eventGenerators.filter(g => g.name !== event.name);
       return { ...world, eventGenerators: [...others, event.generator] };
     }
+    case 'deregister_generator':
+      return { ...world, eventGenerators: world.eventGenerators.filter(g => g.name !== event.name) };
     case 'create_investment': {
       if (world.investments.some(i => i.name === event.name)) {
         throw new Error(`investment named ${event.name} exists already`);

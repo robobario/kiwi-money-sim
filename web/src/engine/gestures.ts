@@ -95,7 +95,20 @@ export interface SellHouseGesture {
   readonly fixedCosts: number;
 }
 
-export type SuperannuationLivingSituation = 'single_alone' | 'single_sharing' | 'couple_both' | 'couple_one' | 'couple_both_each';
+export interface EndJobGesture {
+  readonly kind: 'end_job';
+  readonly day: number;
+  readonly personName: string;
+  readonly jobName: string;
+}
+
+export interface RetireGesture {
+  readonly kind: 'retire';
+  readonly day: number;
+  readonly personName: string;
+}
+
+export type SuperannuationLivingSituation = 'single_alone' | 'single_sharing' | 'couple';
 
 export interface StartSuperannuationGesture {
   readonly kind: 'start_superannuation';
@@ -113,6 +126,8 @@ export type Gesture =
   | CreatePeriodicInvestmentGesture
   | CreateInflationGesture
   | StartJobGesture
+  | EndJobGesture
+  | RetireGesture
   | SellHouseGesture
   | StartSuperannuationGesture;
 
@@ -252,10 +267,11 @@ export function gestureEvents(gesture: Gesture, world?: World): Event[] {
     }
 
     case 'start_job': {
-      const ksName = `${gesture.name}-kiwisaver`;
+      const prefix = `${gesture.personName}-${gesture.name}`;
+      const ksName = `${prefix}-kiwisaver`;
       const events: Event[] = [
-        { kind: 'create_account', name: `${gesture.name}-tax-spend`,      balance: 0, external: true },
-        { kind: 'create_account', name: `${gesture.name}-acc-levy-spend`,  balance: 0, external: true },
+        { kind: 'create_account', name: `${prefix}-tax-spend`,     balance: 0, external: true },
+        { kind: 'create_account', name: `${prefix}-acc-levy-spend`, balance: 0, external: true },
       ];
       if (gesture.kiwiSaverEnabled) {
         events.push({ kind: 'create_investment', name: ksName, initialPrice: 1.0 });
@@ -272,17 +288,17 @@ export function gestureEvents(gesture: Gesture, world?: World): Event[] {
       }
       events.push({
         kind: 'register_generator',
-        name: `${gesture.name}-salary`,
+        name: `${prefix}-salary`,
         generator: {
           kind: 'nz_salary',
-          name: `${gesture.name}-salary`,
+          name: `${prefix}-salary`,
           startDay: gesture.day,
           frequency: gesture.payFrequency,
           annualSalary: gesture.annualSalary,
           fromAccount: 'income',
           cashAccount: 'cash',
-          taxAccount:  `${gesture.name}-tax-spend`,
-          accAccount:  `${gesture.name}-acc-levy-spend`,
+          taxAccount:  `${prefix}-tax-spend`,
+          accAccount:  `${prefix}-acc-levy-spend`,
           kiwiSaverInvestmentName: gesture.kiwiSaverEnabled ? ksName : undefined,
           employeeKiwiSaverPercent: gesture.employeeKiwiSaverPercent,
           employerKiwiSaverPercent: gesture.employerKiwiSaverPercent,
@@ -291,6 +307,18 @@ export function gestureEvents(gesture: Gesture, world?: World): Event[] {
         },
       });
       return events;
+    }
+
+    case 'end_job': {
+      const prefix = `${gesture.personName}-${gesture.jobName}`;
+      return [{ kind: 'deregister_generator', name: `${prefix}-salary` }];
+    }
+
+    case 'retire': {
+      const pattern = new RegExp(`^${gesture.personName}-.+-salary$`);
+      return (world?.eventGenerators ?? [])
+        .filter(g => pattern.test(g.name))
+        .map(g => ({ kind: 'deregister_generator' as const, name: g.name }));
     }
 
     case 'sell_house': {
@@ -339,12 +367,10 @@ export function gestureEvents(gesture: Gesture, world?: World): Event[] {
     }
 
     case 'start_superannuation': {
-      const weeklyRates: Record<SuperannuationLivingSituation, number> = {
-        single_alone:     555.15,
-        single_sharing:   512.45,
-        couple_both:      854.08,
-        couple_one:       812.08,
-        couple_both_each: 427.04,
+      const fortnightlyRates: Record<SuperannuationLivingSituation, number> = {
+        single_alone:  1294.74,
+        single_sharing: 1191.14,
+        couple:          984.28,
       };
       const generatorName = `${gesture.personName}-super`;
       return [{
@@ -356,8 +382,8 @@ export function gestureEvents(gesture: Gesture, world?: World): Event[] {
           startDay: gesture.day,
           from: 'income',
           to: 'cash',
-          amount: weeklyRates[gesture.livingSituation],
-          frequency: 'weekly',
+          amount: fortnightlyRates[gesture.livingSituation],
+          frequency: 'fortnightly',
           inflationLinked: true,
           baseInflationIndex,
         },

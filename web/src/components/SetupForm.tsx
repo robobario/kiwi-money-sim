@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { GlobalConfig, Person } from '../types/form';
 import { simulationYears } from '../types/form';
-import type { Gesture, CreateExistingMortgageGesture, BuyHouseGesture, StartSuperannuationGesture } from '../engine/gestures';
+import type { Gesture, CreateExistingMortgageGesture, BuyHouseGesture, StartJobGesture } from '../engine/gestures';
 import { AddEventForm } from './AddEventPanel';
 
 interface SetupTabProps {
@@ -49,13 +49,15 @@ function gestureLabel(g: Gesture): string {
       return `Buy ${g.name}: $${g.housePrice.toLocaleString()}, $${g.deposit.toLocaleString()} deposit, $${(g.housePrice - g.deposit).toLocaleString()} mortgage at ${g.annualRatePercent}% / ${g.termYears}yr`;
     case 'sell_house':
       return `Sell ${g.houseName}: ${g.salePriceOverride !== undefined ? `$${g.salePriceOverride.toLocaleString()} fixed` : 'market price'}, ${g.agentFeePercent}% agent, $${g.fixedCosts.toLocaleString()} legal`;
+    case 'end_job':
+      return `[${g.personName}] End job: ${g.jobName}`;
+    case 'retire':
+      return `[${g.personName}] Retire`;
     case 'start_superannuation': {
       const situationLabels: Record<string, string> = {
-        single_alone: 'Single (living alone)',
+        single_alone:   'Single (living alone)',
         single_sharing: 'Single (sharing)',
-        couple_both: 'Couple (both qualify)',
-        couple_one: 'Couple (one qualifies)',
-        couple_both_each: 'Couple (both qualify, per person)',
+        couple:         'Couple',
       };
       return `[${g.personName}] NZ Super: ${situationLabels[g.livingSituation] ?? g.livingSituation}`;
     }
@@ -98,19 +100,15 @@ export function SetupTab({ config, onConfigChange, timeline, onAddEvent, onUpdat
     .filter((g): g is CreateExistingMortgageGesture | BuyHouseGesture => g.kind === 'create_existing_mortgage' || g.kind === 'buy_house')
     .map(g => g.name);
 
-  const superCount = timeline.filter(g => g.kind === 'start_superannuation').length;
+  const availableJobs = timeline
+    .filter((g): g is StartJobGesture => g.kind === 'start_job')
+    .map(g => ({ personName: g.personName, jobName: g.name }));
+
 
   const endDate = new Date(startDay);
   endDate.setUTCFullYear(endDate.getUTCFullYear() + simulationYears(config));
 
   const handleAdd = (gesture: Gesture) => {
-    if (gesture.kind === 'start_superannuation' && config.persons.length > 1 && superCount >= 1) {
-      const idx = timeline.findIndex(g => g.kind === 'start_superannuation');
-      if (idx !== -1) {
-        const existing = timeline[idx] as StartSuperannuationGesture;
-        onUpdateEvent(idx, { ...existing, livingSituation: 'couple_both_each' });
-      }
-    }
     onAddEvent(gesture);
     setShowAddForm(false);
   };
@@ -180,9 +178,9 @@ export function SetupTab({ config, onConfigChange, timeline, onAddEvent, onUpdat
               onCancel={() => setEditingIndex(null)}
               startDay={startDay}
               availableHouses={availableHouses}
+              availableJobs={availableJobs}
               initialGesture={gesture}
               persons={config.persons}
-              existingSuperCount={timeline.filter((g, i) => g.kind === 'start_superannuation' && i !== originalIndex).length}
             />
           ) : (
             <div key={originalIndex} className="timeline-entry">
@@ -195,7 +193,7 @@ export function SetupTab({ config, onConfigChange, timeline, onAddEvent, onUpdat
         )}
 
         {showAddForm ? (
-          <AddEventForm onAdd={handleAdd} startDay={startDay} onCancel={() => setShowAddForm(false)} availableHouses={availableHouses} persons={config.persons} existingSuperCount={superCount} />
+          <AddEventForm onAdd={handleAdd} startDay={startDay} onCancel={() => setShowAddForm(false)} availableHouses={availableHouses} availableJobs={availableJobs} persons={config.persons} />
         ) : editingIndex === null ? (
           <button type="button" className="btn-secondary timeline-add-btn" onClick={() => setShowAddForm(true)}>
             + Add Event
