@@ -8,6 +8,7 @@ interface SetupTabProps {
   onConfigChange: (config: GlobalConfig) => void;
   timeline: Gesture[];
   onAddEvent: (gesture: Gesture) => void;
+  onUpdateEvent: (index: number, gesture: Gesture) => void;
   onRemoveEvent: (originalIndex: number) => void;
   startDay: Date;
 }
@@ -56,8 +57,9 @@ function formatMonthYear(date: Date): string {
   return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
 }
 
-export function SetupTab({ config, onConfigChange, timeline, onAddEvent, onRemoveEvent, startDay }: SetupTabProps) {
+export function SetupTab({ config, onConfigChange, timeline, onAddEvent, onUpdateEvent, onRemoveEvent, startDay }: SetupTabProps) {
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
   const update = <K extends keyof GlobalConfig>(key: K, value: GlobalConfig[K]) => {
     onConfigChange({ ...config, [key]: value });
@@ -77,6 +79,11 @@ export function SetupTab({ config, onConfigChange, timeline, onAddEvent, onRemov
   const handleAdd = (gesture: Gesture) => {
     onAddEvent(gesture);
     setShowAddForm(false);
+  };
+
+  const handleEdit = (originalIndex: number) => {
+    setShowAddForm(false);
+    setEditingIndex(originalIndex);
   };
 
   return (
@@ -99,21 +106,34 @@ export function SetupTab({ config, onConfigChange, timeline, onAddEvent, onRemov
       <div className="timeline">
         <div className="timeline-marker">Start — {formatMonthYear(startDay)}</div>
 
-        {sortedEntries.map(({ gesture, originalIndex }) => (
-          <div key={originalIndex} className="timeline-entry">
-            <span className="entry-date">{formatDate(gesture.day)}</span>
-            <span className="entry-label">{gestureLabel(gesture)}</span>
-            <button type="button" className="btn-remove" onClick={() => onRemoveEvent(originalIndex)}>×</button>
-          </div>
-        ))}
+        {sortedEntries.map(({ gesture, originalIndex }) =>
+          editingIndex === originalIndex ? (
+            <AddEventForm
+              key={`edit-${originalIndex}`}
+              onAdd={() => {}}
+              onUpdate={(updated) => { onUpdateEvent(originalIndex, updated); setEditingIndex(null); }}
+              onCancel={() => setEditingIndex(null)}
+              startDay={startDay}
+              availableHouses={availableHouses}
+              initialGesture={gesture}
+            />
+          ) : (
+            <div key={originalIndex} className="timeline-entry">
+              <span className="entry-date">{formatDate(gesture.day)}</span>
+              <span className="entry-label">{gestureLabel(gesture)}</span>
+              <button type="button" className="btn-edit" onClick={() => handleEdit(originalIndex)}>Edit</button>
+              <button type="button" className="btn-remove" onClick={() => onRemoveEvent(originalIndex)}>×</button>
+            </div>
+          )
+        )}
 
         {showAddForm ? (
           <AddEventForm onAdd={handleAdd} startDay={startDay} onCancel={() => setShowAddForm(false)} availableHouses={availableHouses} />
-        ) : (
+        ) : editingIndex === null ? (
           <button type="button" className="btn-secondary timeline-add-btn" onClick={() => setShowAddForm(true)}>
             + Add Event
           </button>
-        )}
+        ) : null}
 
         <div className="timeline-marker">End — {formatMonthYear(endDate)}</div>
       </div>

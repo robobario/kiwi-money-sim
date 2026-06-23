@@ -206,6 +206,21 @@ h1 {
   background: #e5e7eb;
 }
 
+.btn-edit {
+  padding: 0.2rem 0.5rem;
+  background: none;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  color: #6b7280;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.btn-edit:hover {
+  color: #2563eb;
+  border-color: #2563eb;
+}
+
 .btn-remove {
   padding: 0.2rem 0.5rem;
   background: none;

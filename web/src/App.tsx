@@ -75,6 +75,7 @@ export default function App() {
           onConfigChange={setConfig}
           timeline={timeline}
           onAddEvent={g => setTimeline(prev => [...prev, g])}
+          onUpdateEvent={(i, g) => setTimeline(prev => prev.map((existing, idx) => idx === i ? g : existing))}
           onRemoveEvent={i => setTimeline(prev => prev.filter((_, idx) => idx !== i))}
           startDay={startDay}
         />

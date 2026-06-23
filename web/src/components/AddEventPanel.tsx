@@ -5,11 +5,109 @@ import { CASH_ACCOUNT, INCOME_ACCOUNT } from '../engine/simulation';
 
 type EventType = 'start_job' | 'income' | 'cost' | 'investment' | 'buy_house' | 'mortgage' | 'sell_house';
 
+interface FormState {
+  eventType: EventType;
+  name: string;
+  startDate: string;
+  amount: number;
+  frequency: Frequency;
+  inflationLinked: boolean;
+  annualGrowthPercent: number;
+  principal: number;
+  houseValue: number;
+  interestRate: number;
+  termYears: number;
+  housePriceGrowth: number;
+  mortgageName: string;
+  jobName: string;
+  annualSalary: number;
+  payFrequency: 'weekly' | 'fortnightly' | 'first_of_month';
+  inflationMatchedPayrise: boolean;
+  kiwiSaverEnabled: boolean;
+  employeeKiwiSaverPercent: number;
+  employerKiwiSaverPercent: number;
+  kiwiSaverGrowthPercent: number;
+  deposit: number;
+  selectedHouse: string;
+  useMarketPrice: boolean;
+  salePrice: number;
+  agentFeePercent: number;
+  fixedCosts: number;
+}
+
+function stateFromGesture(g: Gesture | undefined, today: string): FormState {
+  const defaults: FormState = {
+    eventType: 'start_job',
+    name: '',
+    startDate: today,
+    amount: 0,
+    frequency: 'first_of_month',
+    inflationLinked: false,
+    annualGrowthPercent: 5,
+    principal: 0,
+    houseValue: 0,
+    interestRate: 6.0,
+    termYears: 25,
+    housePriceGrowth: 0,
+    mortgageName: 'home',
+    jobName: 'job',
+    annualSalary: 72800,
+    payFrequency: 'first_of_month',
+    inflationMatchedPayrise: false,
+    kiwiSaverEnabled: true,
+    employeeKiwiSaverPercent: 3.5,
+    employerKiwiSaverPercent: 3.5,
+    kiwiSaverGrowthPercent: 5,
+    deposit: 0,
+    selectedHouse: '',
+    useMarketPrice: true,
+    salePrice: 0,
+    agentFeePercent: 2.5,
+    fixedCosts: 2000,
+  };
+  if (!g) return defaults;
+
+  const startDate = new Date(g.day).toISOString().slice(0, 10);
+
+  switch (g.kind) {
+    case 'start_job':
+      return { ...defaults, eventType: 'start_job', startDate, jobName: g.name, annualSalary: g.annualSalary,
+        payFrequency: g.payFrequency, inflationMatchedPayrise: g.inflationMatchedPayrise,
+        kiwiSaverEnabled: g.kiwiSaverEnabled, employeeKiwiSaverPercent: g.employeeKiwiSaverPercent,
+        employerKiwiSaverPercent: g.employerKiwiSaverPercent, kiwiSaverGrowthPercent: g.kiwiSaverGrowthPercent };
+    case 'create_income':
+      return { ...defaults, eventType: 'income', startDate, name: g.name, amount: g.amount,
+        frequency: g.frequency, inflationLinked: !!g.inflationLinked };
+    case 'create_repeat_cost':
+      return { ...defaults, eventType: 'cost', startDate, name: g.name, amount: g.amount,
+        frequency: g.frequency, inflationLinked: !!g.inflationLinked };
+    case 'create_periodic_investment':
+      return { ...defaults, eventType: 'investment', startDate, name: g.name, amount: g.periodAmount,
+        frequency: g.frequency, annualGrowthPercent: g.annualGrowthPercent };
+    case 'buy_house':
+      return { ...defaults, eventType: 'buy_house', startDate, mortgageName: g.name,
+        houseValue: g.housePrice, deposit: g.deposit, interestRate: g.annualRatePercent,
+        termYears: g.termYears, housePriceGrowth: g.annualHousePriceGrowthPercent ?? 0 };
+    case 'create_existing_mortgage':
+      return { ...defaults, eventType: 'mortgage', startDate, mortgageName: g.name,
+        principal: g.principal, houseValue: g.assetValue, interestRate: g.annualRatePercent,
+        termYears: g.termYears, housePriceGrowth: g.annualHousePriceGrowthPercent ?? 0 };
+    case 'sell_house':
+      return { ...defaults, eventType: 'sell_house', startDate, selectedHouse: g.houseName,
+        useMarketPrice: g.salePriceOverride === undefined, salePrice: g.salePriceOverride ?? 0,
+        agentFeePercent: g.agentFeePercent, fixedCosts: g.fixedCosts };
+    default:
+      return { ...defaults, startDate };
+  }
+}
+
 interface AddEventFormProps {
   onAdd: (gesture: Gesture) => void;
+  onUpdate?: (gesture: Gesture) => void;
   onCancel: () => void;
   startDay: Date;
   availableHouses: string[];
+  initialGesture?: Gesture;
 }
 
 function truncateToDay(date: Date): number {
@@ -42,78 +140,89 @@ function FrequencySelect({ value, onChange }: { value: Frequency; onChange: (v: 
   );
 }
 
-export function AddEventForm({ onAdd, onCancel, startDay, availableHouses }: AddEventFormProps) {
+export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHouses, initialGesture }: AddEventFormProps) {
   const today = toDateString(startDay);
-  const [eventType, setEventType] = useState<EventType>('start_job');
-  const [name, setName] = useState('');
-  const [startDate, setStartDate] = useState(today);
-  const [amount, setAmount] = useState(0);
-  const [frequency, setFrequency] = useState<Frequency>('first_of_month');
-  const [inflationLinked, setInflationLinked] = useState(false);
-  const [annualGrowthPercent, setAnnualGrowthPercent] = useState(5);
-  const [principal, setPrincipal] = useState(0);
-  const [houseValue, setHouseValue] = useState(0);
-  const [interestRate, setInterestRate] = useState(6.0);
-  const [termYears, setTermYears] = useState(25);
-  const [housePriceGrowth, setHousePriceGrowth] = useState(0);
-  const [mortgageName, setMortgageName] = useState('home');
-  const [jobName, setJobName] = useState('job');
-  const [annualSalary, setAnnualSalary] = useState(0);
-  const [payFrequency, setPayFrequency] = useState<'weekly' | 'fortnightly' | 'first_of_month'>('first_of_month');
-  const [inflationMatchedPayrise, setInflationMatchedPayrise] = useState(false);
-  const [kiwiSaverEnabled, setKiwiSaverEnabled] = useState(true);
-  const [employeeKiwiSaverPercent, setEmployeeKiwiSaverPercent] = useState(3);
-  const [employerKiwiSaverPercent, setEmployerKiwiSaverPercent] = useState(3);
-  const [kiwiSaverGrowthPercent, setKiwiSaverGrowthPercent] = useState(5);
-  const [deposit, setDeposit] = useState(0);
-  const [selectedHouse, setSelectedHouse] = useState('');
-  const [useMarketPrice, setUseMarketPrice] = useState(true);
-  const [salePrice, setSalePrice] = useState(0);
-  const [agentFeePercent, setAgentFeePercent] = useState(2.5);
-  const [fixedCosts, setFixedCosts] = useState(2000);
+  const init = stateFromGesture(initialGesture, today);
 
-  const handleAdd = () => {
+  const [eventType, setEventType] = useState<EventType>(init.eventType);
+  const [name, setName] = useState(init.name);
+  const [startDate, setStartDate] = useState(init.startDate);
+  const [amount, setAmount] = useState(init.amount);
+  const [frequency, setFrequency] = useState<Frequency>(init.frequency);
+  const [inflationLinked, setInflationLinked] = useState(init.inflationLinked);
+  const [annualGrowthPercent, setAnnualGrowthPercent] = useState(init.annualGrowthPercent);
+  const [principal, setPrincipal] = useState(init.principal);
+  const [houseValue, setHouseValue] = useState(init.houseValue);
+  const [interestRate, setInterestRate] = useState(init.interestRate);
+  const [termYears, setTermYears] = useState(init.termYears);
+  const [housePriceGrowth, setHousePriceGrowth] = useState(init.housePriceGrowth);
+  const [mortgageName, setMortgageName] = useState(init.mortgageName);
+  const [jobName, setJobName] = useState(init.jobName);
+  const [annualSalary, setAnnualSalary] = useState(init.annualSalary);
+  const [payFrequency, setPayFrequency] = useState<'weekly' | 'fortnightly' | 'first_of_month'>(init.payFrequency);
+  const [inflationMatchedPayrise, setInflationMatchedPayrise] = useState(init.inflationMatchedPayrise);
+  const [kiwiSaverEnabled, setKiwiSaverEnabled] = useState(init.kiwiSaverEnabled);
+  const [employeeKiwiSaverPercent, setEmployeeKiwiSaverPercent] = useState(init.employeeKiwiSaverPercent);
+  const [employerKiwiSaverPercent, setEmployerKiwiSaverPercent] = useState(init.employerKiwiSaverPercent);
+  const [kiwiSaverGrowthPercent, setKiwiSaverGrowthPercent] = useState(init.kiwiSaverGrowthPercent);
+  const [deposit, setDeposit] = useState(init.deposit);
+  const [selectedHouse, setSelectedHouse] = useState(init.selectedHouse);
+  const [useMarketPrice, setUseMarketPrice] = useState(init.useMarketPrice);
+  const [salePrice, setSalePrice] = useState(init.salePrice);
+  const [agentFeePercent, setAgentFeePercent] = useState(init.agentFeePercent);
+  const [fixedCosts, setFixedCosts] = useState(init.fixedCosts);
+
+  const isEditing = onUpdate !== undefined;
+
+  const handleSubmit = () => {
     const day = truncateToDay(new Date(startDate + 'T00:00:00Z'));
+    let gesture: Gesture | null = null;
+
     if (eventType === 'start_job') {
       if (!jobName || annualSalary <= 0) return;
-      onAdd({
+      gesture = {
         kind: 'start_job', day, name: jobName, annualSalary, payFrequency,
         kiwiSaverEnabled, employeeKiwiSaverPercent, employerKiwiSaverPercent, kiwiSaverGrowthPercent,
         inflationMatchedPayrise,
-      });
+      };
     } else if (eventType === 'income') {
       if (!name || amount <= 0) return;
-      onAdd({ kind: 'create_income', day, name, frequency, amount, toAccount: CASH_ACCOUNT, fromAccount: INCOME_ACCOUNT, inflationLinked });
+      gesture = { kind: 'create_income', day, name, frequency, amount, toAccount: CASH_ACCOUNT, fromAccount: INCOME_ACCOUNT, inflationLinked };
     } else if (eventType === 'cost') {
       if (!name || amount <= 0) return;
-      onAdd({ kind: 'create_repeat_cost', day, name, frequency, amount, fromAccount: CASH_ACCOUNT, inflationLinked });
+      gesture = { kind: 'create_repeat_cost', day, name, frequency, amount, fromAccount: CASH_ACCOUNT, inflationLinked };
     } else if (eventType === 'investment') {
       if (!name || amount <= 0) return;
-      onAdd({ kind: 'create_periodic_investment', day, name, frequency, periodAmount: amount, annualGrowthPercent, fromAccount: CASH_ACCOUNT });
+      gesture = { kind: 'create_periodic_investment', day, name, frequency, periodAmount: amount, annualGrowthPercent, fromAccount: CASH_ACCOUNT };
     } else if (eventType === 'buy_house') {
       if (houseValue <= 0 || deposit < 0 || deposit >= houseValue) return;
-      onAdd({
+      gesture = {
         kind: 'buy_house', day, name: mortgageName,
         housePrice: houseValue, deposit, annualRatePercent: interestRate,
         termYears, paymentFromAccount: CASH_ACCOUNT,
         annualHousePriceGrowthPercent: housePriceGrowth,
-      });
+      };
     } else if (eventType === 'mortgage') {
       if (principal <= 0 || houseValue <= 0) return;
-      onAdd({
+      gesture = {
         kind: 'create_existing_mortgage', day, name: mortgageName,
         principal, assetValue: houseValue, annualRatePercent: interestRate,
         interestFrequency: 'first_of_month', termYears, paymentFromAccount: CASH_ACCOUNT,
         annualHousePriceGrowthPercent: housePriceGrowth,
-      });
+      };
     } else {
       const house = selectedHouse || availableHouses[0];
       if (!house) return;
-      onAdd({
+      gesture = {
         kind: 'sell_house', day, houseName: house,
         salePriceOverride: useMarketPrice ? undefined : salePrice,
         agentFeePercent, fixedCosts,
-      });
+      };
+    }
+
+    if (gesture) {
+      if (isEditing) onUpdate!(gesture);
+      else onAdd(gesture);
     }
   };
 
@@ -142,7 +251,7 @@ export function AddEventForm({ onAdd, onCancel, startDay, availableHouses }: Add
             <Field label="Job name">
               <input type="text" value={jobName} onChange={e => setJobName(e.target.value)} />
             </Field>
-            <Field label="Annual salary ($)">
+            <Field label="Annual pre-tax salary ($)">
               <input type="number" min="0" value={annualSalary} onChange={e => setAnnualSalary(Number(e.target.value))} />
             </Field>
             <Field label="Pay frequency">
@@ -315,7 +424,7 @@ export function AddEventForm({ onAdd, onCancel, startDay, availableHouses }: Add
       )}
 
       <div className="form-row form-actions">
-        <button type="button" className="btn-primary" onClick={handleAdd}>Add</button>
+        <button type="button" className="btn-primary" onClick={handleSubmit}>{isEditing ? 'Save' : 'Add'}</button>
         <button type="button" className="btn-secondary" onClick={onCancel}>Cancel</button>
       </div>
     </div>
