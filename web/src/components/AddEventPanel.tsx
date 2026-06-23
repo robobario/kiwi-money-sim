@@ -4,7 +4,7 @@ import type { Frequency } from '../engine/events';
 import { CASH_ACCOUNT, INCOME_ACCOUNT } from '../engine/simulation';
 import type { Person } from '../types/form';
 
-type EventType = 'start_job' | 'end_job' | 'retire' | 'drawdown' | 'income' | 'cost' | 'investment' | 'buy_house' | 'mortgage' | 'sell_house' | 'superannuation';
+type EventType = 'start_job' | 'end_job' | 'retire' | 'drawdown' | 'income' | 'cost' | 'investment' | 'buy_house' | 'mortgage' | 'sell_house' | 'superannuation' | 'cash_gift';
 
 interface FormState {
   eventType: EventType;
@@ -32,6 +32,7 @@ interface FormState {
   deposit: number;
   selectedHouse: string;
   selectedJobName: string;
+  initialBuyAmount: number;
   drawdownInvestment: string;
   drawdownMode: 'percent' | 'fixed';
   drawdownPercent: number;
@@ -71,6 +72,7 @@ function stateFromGesture(g: Gesture | undefined, today: string, defaultPersonNa
     deposit: 0,
     selectedHouse: '',
     selectedJobName: '',
+    initialBuyAmount: 0,
     drawdownInvestment: '',
     drawdownMode: 'percent',
     drawdownPercent: 4,
@@ -99,7 +101,8 @@ function stateFromGesture(g: Gesture | undefined, today: string, defaultPersonNa
       return { ...defaults, eventType: 'cost', startDate, name: g.name, amount: g.amount,
         frequency: g.frequency, inflationLinked: !!g.inflationLinked };
     case 'create_periodic_investment':
-      return { ...defaults, eventType: 'investment', startDate, name: g.name, amount: g.periodAmount,
+      return { ...defaults, eventType: 'investment', startDate, name: g.name,
+        initialBuyAmount: g.initialAmount ?? 0, amount: g.periodAmount,
         frequency: g.frequency, annualGrowthPercent: g.annualGrowthPercent };
     case 'buy_house':
       return { ...defaults, eventType: 'buy_house', startDate, mortgageName: g.name,
@@ -124,6 +127,8 @@ function stateFromGesture(g: Gesture | undefined, today: string, defaultPersonNa
       return { ...defaults, eventType: 'end_job', startDate, personName: g.personName, selectedJobName: g.jobName };
     case 'retire':
       return { ...defaults, eventType: 'retire', startDate, personName: g.personName };
+    case 'cash_gift':
+      return { ...defaults, eventType: 'cash_gift', startDate, amount: g.amount };
     default:
       return { ...defaults, startDate };
   }
@@ -209,6 +214,7 @@ export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHou
   const [deposit, setDeposit] = useState(init.deposit);
   const [selectedHouse, setSelectedHouse] = useState(init.selectedHouse);
   const [selectedJobName, setSelectedJobName] = useState(init.selectedJobName);
+  const [initialBuyAmount, setInitialBuyAmount] = useState(init.initialBuyAmount);
   const [drawdownInvestment, setDrawdownInvestment] = useState(init.drawdownInvestment);
   const [drawdownMode, setDrawdownMode] = useState<'percent' | 'fixed'>(init.drawdownMode);
   const [drawdownPercent, setDrawdownPercent] = useState(init.drawdownPercent);
@@ -254,8 +260,8 @@ export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHou
       if (!name || amount <= 0) return;
       gesture = { kind: 'create_repeat_cost', day, name, frequency, amount, fromAccount: CASH_ACCOUNT, inflationLinked };
     } else if (eventType === 'investment') {
-      if (!name || amount <= 0) return;
-      gesture = { kind: 'create_periodic_investment', day, name, frequency, periodAmount: amount, annualGrowthPercent, fromAccount: CASH_ACCOUNT };
+      if (!name || (initialBuyAmount <= 0 && amount <= 0)) return;
+      gesture = { kind: 'create_periodic_investment', day, name, frequency, initialAmount: initialBuyAmount || undefined, periodAmount: amount, annualGrowthPercent, fromAccount: CASH_ACCOUNT };
     } else if (eventType === 'buy_house') {
       if (houseValue <= 0 || deposit < 0 || deposit >= houseValue) return;
       gesture = {
@@ -288,6 +294,9 @@ export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHou
       gesture = { kind: 'end_job', day, personName, jobName };
     } else if (eventType === 'retire') {
       gesture = { kind: 'retire', day, personName };
+    } else if (eventType === 'cash_gift') {
+      if (amount <= 0) return;
+      gesture = { kind: 'cash_gift', day, amount };
     } else if (eventType === 'superannuation') {
       const derivedSituation: SuperannuationLivingSituation = persons.length === 1 ? livingSituation : 'couple';
       gesture = { kind: 'start_superannuation', day, personName, livingSituation: derivedSituation };
@@ -317,6 +326,7 @@ export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHou
             <option value="retire">Retire</option>
             <option value="drawdown">Start Recurring Drawdown</option>
             <option value="superannuation">Start NZ Super</option>
+            <option value="cash_gift">Receive Cash Gift</option>
             <option value="income">Recurring Income</option>
             <option value="cost">Recurring Cost</option>
             <option value="investment">Periodic Investment</option>
@@ -462,6 +472,14 @@ export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHou
         </div>
       )}
 
+      {eventType === 'cash_gift' && (
+        <div className="form-row">
+          <Field label="Amount ($)">
+            <input type="number" min="0" value={amount} onChange={e => setAmount(Number(e.target.value))} />
+          </Field>
+        </div>
+      )}
+
       {(eventType === 'income' || eventType === 'cost') && (
         <div className="form-row">
           <Field label="Name">
@@ -483,20 +501,29 @@ export function AddEventForm({ onAdd, onUpdate, onCancel, startDay, availableHou
       )}
 
       {eventType === 'investment' && (
-        <div className="form-row">
-          <Field label="Fund name">
-            <input type="text" value={name} onChange={e => setName(e.target.value)} />
-          </Field>
-          <Field label="Amount per period ($)">
-            <input type="number" min="0" value={amount} onChange={e => setAmount(Number(e.target.value))} />
-          </Field>
-          <Field label="Frequency">
-            <FrequencySelect value={frequency} onChange={setFrequency} />
-          </Field>
-          <Field label="Growth (% p.a.)">
-            <input type="number" step="0.1" min="0" value={annualGrowthPercent} onChange={e => setAnnualGrowthPercent(Number(e.target.value))} />
-          </Field>
-        </div>
+        <>
+          <div className="form-row">
+            <Field label="Fund name">
+              <input type="text" value={name} onChange={e => setName(e.target.value)} />
+            </Field>
+            <Field label="Initial purchase ($)">
+              <input type="number" min="0" value={initialBuyAmount} onChange={e => setInitialBuyAmount(Number(e.target.value))} />
+            </Field>
+            <Field label="Growth (% p.a.)">
+              <input type="number" step="0.1" min="0" value={annualGrowthPercent} onChange={e => setAnnualGrowthPercent(Number(e.target.value))} />
+            </Field>
+          </div>
+          <div className="form-row">
+            <Field label="Recurring amount ($)">
+              <input type="number" min="0" value={amount} onChange={e => setAmount(Number(e.target.value))} />
+            </Field>
+            {amount > 0 && (
+              <Field label="Frequency">
+                <FrequencySelect value={frequency} onChange={setFrequency} />
+              </Field>
+            )}
+          </div>
+        </>
       )}
 
       {eventType === 'buy_house' && (

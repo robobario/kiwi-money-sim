@@ -54,6 +54,7 @@ export interface CreatePeriodicInvestmentGesture {
   readonly kind: 'create_periodic_investment';
   readonly day: number;
   readonly name: string;
+  readonly initialAmount?: number;
   readonly periodAmount: number;
   readonly frequency: Frequency;
   readonly annualGrowthPercent: number;
@@ -105,6 +106,12 @@ export interface StartDrawdownGesture {
   readonly inflationLinked: boolean;
 }
 
+export interface CashGiftGesture {
+  readonly kind: 'cash_gift';
+  readonly day: number;
+  readonly amount: number;
+}
+
 export interface EndJobGesture {
   readonly kind: 'end_job';
   readonly day: number;
@@ -140,7 +147,8 @@ export type Gesture =
   | RetireGesture
   | StartDrawdownGesture
   | SellHouseGesture
-  | StartSuperannuationGesture;
+  | StartSuperannuationGesture
+  | CashGiftGesture;
 
 export function gestureEvents(gesture: Gesture, world?: World): Event[] {
   const baseInflationIndex = world?.inflationIndex ?? 1;
@@ -198,8 +206,8 @@ export function gestureEvents(gesture: Gesture, world?: World): Event[] {
         },
       }];
 
-    case 'create_periodic_investment':
-      return [
+    case 'create_periodic_investment': {
+      const events: Event[] = [
         { kind: 'create_investment', name: gesture.name, initialPrice: 1.0 },
         {
           kind: 'register_generator',
@@ -211,7 +219,12 @@ export function gestureEvents(gesture: Gesture, world?: World): Event[] {
             annualGrowthPercent: gesture.annualGrowthPercent,
           },
         },
-        {
+      ];
+      if (gesture.initialAmount && gesture.initialAmount > 0) {
+        events.push({ kind: 'buy_investment_units', investmentName: gesture.name, cashAmount: gesture.initialAmount, fromAccount: gesture.fromAccount });
+      }
+      if (gesture.periodAmount > 0) {
+        events.push({
           kind: 'register_generator',
           name: `${gesture.name}-buy`,
           generator: {
@@ -223,8 +236,10 @@ export function gestureEvents(gesture: Gesture, world?: World): Event[] {
             fromAccount: gesture.fromAccount,
             frequency: gesture.frequency,
           },
-        },
-      ];
+        });
+      }
+      return events;
+    }
 
     case 'buy_house': {
       const principal = gesture.housePrice - gesture.deposit;
@@ -396,6 +411,9 @@ export function gestureEvents(gesture: Gesture, world?: World): Event[] {
       events.push({ kind: 'clear_investment', name: houseInvestmentName });
       return events;
     }
+
+    case 'cash_gift':
+      return [{ kind: 'transfer', from: 'income', to: 'cash', amount: gesture.amount }];
 
     case 'start_superannuation': {
       const fortnightlyRates: Record<SuperannuationLivingSituation, number> = {

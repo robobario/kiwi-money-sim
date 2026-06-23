@@ -391,6 +391,66 @@ describe('start_drawdown gesture', () => {
   });
 });
 
+describe('create_periodic_investment gesture', () => {
+  it('with only an initial buy: creates investment, appreciation generator, and one-time buy event', () => {
+    const events = gestureEvents({
+      kind: 'create_periodic_investment',
+      day: JAN_1_2024,
+      name: 'index-fund',
+      initialAmount: 50000,
+      periodAmount: 0,
+      frequency: 'first_of_month',
+      annualGrowthPercent: 7,
+      fromAccount: 'cash',
+    });
+    expect(events).toHaveLength(3);
+    expect(events[0]).toMatchObject({ kind: 'create_investment', name: 'index-fund' });
+    expect(events[1]).toMatchObject({ kind: 'register_generator' });
+    expect(events[2]).toEqual({ kind: 'buy_investment_units', investmentName: 'index-fund', cashAmount: 50000, fromAccount: 'cash' });
+  });
+
+  it('with only recurring: creates investment, appreciation generator, and periodic buy generator', () => {
+    const events = gestureEvents({
+      kind: 'create_periodic_investment',
+      day: JAN_1_2024,
+      name: 'index-fund',
+      periodAmount: 500,
+      frequency: 'first_of_month',
+      annualGrowthPercent: 7,
+      fromAccount: 'cash',
+    });
+    expect(events).toHaveLength(3);
+    expect(events[2]).toMatchObject({ kind: 'register_generator', name: 'index-fund-buy' });
+    if (events[2].kind === 'register_generator') {
+      expect(events[2].generator.kind).toBe('periodic_buy_investment');
+    }
+  });
+
+  it('with both initial and recurring: produces four events', () => {
+    const events = gestureEvents({
+      kind: 'create_periodic_investment',
+      day: JAN_1_2024,
+      name: 'index-fund',
+      initialAmount: 50000,
+      periodAmount: 500,
+      frequency: 'first_of_month',
+      annualGrowthPercent: 7,
+      fromAccount: 'cash',
+    });
+    expect(events).toHaveLength(4);
+    expect(events[2]).toMatchObject({ kind: 'buy_investment_units', cashAmount: 50000 });
+    expect(events[3]).toMatchObject({ kind: 'register_generator', name: 'index-fund-buy' });
+  });
+});
+
+describe('cash_gift gesture', () => {
+  it('produces a single transfer from income to cash', () => {
+    const events = gestureEvents({ kind: 'cash_gift', day: JAN_1_2024, amount: 50000 });
+    expect(events).toHaveLength(1);
+    expect(events[0]).toEqual({ kind: 'transfer', from: 'income', to: 'cash', amount: 50000 });
+  });
+});
+
 describe('calculateMonthlyPayment', () => {
   it('calculates correctly for 240k at 6% over 22 years', () => {
     const payment = calculateMonthlyPayment(240000, 6.0, 22);

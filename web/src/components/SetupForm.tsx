@@ -41,8 +41,12 @@ function gestureLabel(g: Gesture): string {
       return `$${g.amount.toLocaleString()}${formatFreq(g.frequency)} ${g.name} (income${g.inflationLinked ? ', inflation-linked' : ''})`;
     case 'create_repeat_cost':
       return `$${g.amount.toLocaleString()}${formatFreq(g.frequency)} ${g.name} (cost${g.inflationLinked ? ', inflation-linked' : ''})`;
-    case 'create_periodic_investment':
-      return `$${g.periodAmount.toLocaleString()}${formatFreq(g.frequency)} → ${g.name} at ${g.annualGrowthPercent}% p.a.`;
+    case 'create_periodic_investment': {
+      const parts: string[] = [];
+      if (g.initialAmount && g.initialAmount > 0) parts.push(`$${g.initialAmount.toLocaleString()} initial`);
+      if (g.periodAmount > 0) parts.push(`$${g.periodAmount.toLocaleString()}${formatFreq(g.frequency)}`);
+      return `${parts.join(' + ')} → ${g.name} at ${g.annualGrowthPercent}% p.a.`;
+    }
     case 'create_existing_mortgage':
       return `Mortgage: $${g.principal.toLocaleString()} at ${g.annualRatePercent}% / ${g.termYears}yr, house $${g.assetValue.toLocaleString()}`;
     case 'buy_house':
@@ -59,6 +63,8 @@ function gestureLabel(g: Gesture): string {
       return `[${g.personName}] End job: ${g.jobName}`;
     case 'retire':
       return `[${g.personName}] Retire`;
+    case 'cash_gift':
+      return `Cash gift: $${g.amount.toLocaleString()}`;
     case 'start_superannuation': {
       const situationLabels: Record<string, string> = {
         single_alone:   'Single (living alone)',
