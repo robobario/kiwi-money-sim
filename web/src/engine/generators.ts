@@ -67,7 +67,7 @@ export interface NZSalaryGenerator {
   readonly fromAccount: string;
   readonly cashAccount: string;
   readonly taxAccount: string;
-  readonly accAccount: string;
+  readonly accAccount?: string;
   readonly kiwiSaverInvestmentName?: string;
   readonly employeeKiwiSaverPercent: number;
   readonly employerKiwiSaverPercent: number;
@@ -134,12 +134,14 @@ export function generate(gen: EventGenerator, world: World): Event[] {
       const acc     = roundCents(calculateAnnualACC(effectiveSalary) / periods);
       const empKS   = roundCents(gross * gen.employeeKiwiSaverPercent / 100);
       const emplrKS = roundCents(gross * gen.employerKiwiSaverPercent / 100);
-      const netCash = gross - tax - acc - empKS;
+      const netCash = gross - tax - (gen.accAccount ? acc : 0) - empKS;
       const events: Event[] = [
         { kind: 'transfer', from: gen.fromAccount, to: gen.cashAccount, amount: netCash },
         { kind: 'transfer', from: gen.fromAccount, to: gen.taxAccount,  amount: tax    },
-        { kind: 'transfer', from: gen.fromAccount, to: gen.accAccount,  amount: acc    },
       ];
+      if (gen.accAccount) {
+        events.push({ kind: 'transfer', from: gen.fromAccount, to: gen.accAccount, amount: acc });
+      }
       if (gen.kiwiSaverInvestmentName) {
         if (empKS > 0)
           events.push({ kind: 'buy_investment_units', investmentName: gen.kiwiSaverInvestmentName, cashAmount: empKS,   fromAccount: gen.fromAccount });

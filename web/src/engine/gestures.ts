@@ -368,26 +368,34 @@ export function gestureEvents(gesture: Gesture, world?: World): Event[] {
 
     case 'start_superannuation': {
       const fortnightlyRates: Record<SuperannuationLivingSituation, number> = {
-        single_alone:  1294.74,
+        single_alone:   1294.74,
         single_sharing: 1191.14,
         couple:          984.28,
       };
+      const annualSalary = fortnightlyRates[gesture.livingSituation] * 26;
       const generatorName = `${gesture.personName}-super`;
-      return [{
-        kind: 'register_generator',
-        name: generatorName,
-        generator: {
-          kind: 'repeat_transfer',
+      const taxAccount = `${gesture.personName}-super-tax-spend`;
+      return [
+        { kind: 'create_account', name: taxAccount, balance: 0, external: true },
+        {
+          kind: 'register_generator',
           name: generatorName,
-          startDay: gesture.day,
-          from: 'income',
-          to: 'cash',
-          amount: fortnightlyRates[gesture.livingSituation],
-          frequency: 'fortnightly',
-          inflationLinked: true,
-          baseInflationIndex,
+          generator: {
+            kind: 'nz_salary',
+            name: generatorName,
+            startDay: gesture.day,
+            frequency: 'fortnightly',
+            annualSalary,
+            fromAccount: 'income',
+            cashAccount: 'cash',
+            taxAccount,
+            employeeKiwiSaverPercent: 0,
+            employerKiwiSaverPercent: 0,
+            inflationLinked: true,
+            baseInflationIndex,
+          },
         },
-      }];
+      ];
     }
 
     case 'create_existing_mortgage': {
