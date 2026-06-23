@@ -111,7 +111,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <h1>Finance Simulator</h1>
+      <h1>Kiwi Money Sim</h1>
       <div className="tabs">
         <button
           className={`tab-btn${activeTab === 'setup' ? ' active' : ''}`}
