@@ -1,6 +1,7 @@
 import type { Event, Frequency } from './events';
 import type { World } from './world';
 import { roundCents } from './money';
+import { calculateAnnualTax, calculateAnnualACC, DEFAULT_NZ_TAX_BRACKETS } from './nzTax';
 
 export interface RepeatTransferGenerator {
   readonly kind: 'repeat_transfer';
@@ -57,13 +58,29 @@ export interface InflationGenerator {
   readonly annualRatePercent: number;
 }
 
+export interface NZSalaryGenerator {
+  readonly kind: 'nz_salary';
+  readonly name: string;
+  readonly startDay: number;
+  readonly frequency: Frequency;
+  readonly annualSalary: number;
+  readonly fromAccount: string;
+  readonly cashAccount: string;
+  readonly taxAccount: string;
+  readonly accAccount: string;
+  readonly kiwiSaverInvestmentName?: string;
+  readonly employeeKiwiSaverPercent: number;
+  readonly employerKiwiSaverPercent: number;
+}
+
 export type EventGenerator =
   | RepeatTransferGenerator
   | InterestPaymentGenerator
   | MortgageRepaymentGenerator
   | IndexAppreciationGenerator
   | PeriodicBuyInvestmentGenerator
-  | InflationGenerator;
+  | InflationGenerator
+  | NZSalaryGenerator;
 
 export function generate(gen: EventGenerator, world: World): Event[] {
   switch (gen.kind) {
@@ -104,6 +121,28 @@ export function generate(gen: EventGenerator, world: World): Event[] {
       const dailyMultiplier = Math.pow(1 + gen.annualRatePercent / 100, 1 / 365);
       return [{ kind: 'update_inflation_index', newIndex: world.inflationIndex * dailyMultiplier }];
     }
+    case 'nz_salary': {
+      if (!shouldFire(gen.frequency, world.currentDay, gen.startDay)) return [];
+      const periods = paymentsPerYearFor(gen.frequency);
+      const gross   = roundCents(gen.annualSalary / periods);
+      const tax     = roundCents(calculateAnnualTax(gen.annualSalary, DEFAULT_NZ_TAX_BRACKETS) / periods);
+      const acc     = roundCents(calculateAnnualACC(gen.annualSalary) / periods);
+      const empKS   = roundCents(gross * gen.employeeKiwiSaverPercent / 100);
+      const emplrKS = roundCents(gross * gen.employerKiwiSaverPercent / 100);
+      const netCash = gross - tax - acc - empKS;
+      const events: Event[] = [
+        { kind: 'transfer', from: gen.fromAccount, to: gen.cashAccount, amount: netCash },
+        { kind: 'transfer', from: gen.fromAccount, to: gen.taxAccount,  amount: tax    },
+        { kind: 'transfer', from: gen.fromAccount, to: gen.accAccount,  amount: acc    },
+      ];
+      if (gen.kiwiSaverInvestmentName) {
+        if (empKS > 0)
+          events.push({ kind: 'buy_investment_units', investmentName: gen.kiwiSaverInvestmentName, cashAmount: empKS,   fromAccount: gen.fromAccount });
+        if (emplrKS > 0)
+          events.push({ kind: 'buy_investment_units', investmentName: gen.kiwiSaverInvestmentName, cashAmount: emplrKS, fromAccount: gen.fromAccount });
+      }
+      return events;
+    }
   }
 }
 
@@ -111,6 +150,7 @@ function paymentsPerYearFor(frequency: Frequency): number {
   switch (frequency) {
     case 'daily': return 365;
     case 'weekly': return 52;
+    case 'fortnightly': return 26;
     case 'first_of_month': return 12;
     case 'first_of_year': return 1;
   }
@@ -124,6 +164,11 @@ function shouldFire(frequency: Frequency, currentDay: number, startDay: number):
     case 'weekly': {
       const start = new Date(startDay);
       return current.getUTCDay() === start.getUTCDay();
+    }
+    case 'fortnightly': {
+      if (currentDay < startDay) return false;
+      const diffDays = Math.round((currentDay - startDay) / 86400000);
+      return diffDays % 14 === 0;
     }
     case 'first_of_month':
       return current.getUTCDate() === 1;

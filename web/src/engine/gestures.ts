@@ -72,6 +72,18 @@ export interface BuyHouseGesture {
   readonly annualHousePriceGrowthPercent?: number;
 }
 
+export interface StartJobGesture {
+  readonly kind: 'start_job';
+  readonly day: number;
+  readonly name: string;
+  readonly annualSalary: number;
+  readonly payFrequency: 'weekly' | 'fortnightly' | 'first_of_month';
+  readonly kiwiSaverEnabled: boolean;
+  readonly employeeKiwiSaverPercent: number;
+  readonly employerKiwiSaverPercent: number;
+  readonly kiwiSaverGrowthPercent: number;
+}
+
 export interface SellHouseGesture {
   readonly kind: 'sell_house';
   readonly day: number;
@@ -89,6 +101,7 @@ export type Gesture =
   | BuyHouseGesture
   | CreatePeriodicInvestmentGesture
   | CreateInflationGesture
+  | StartJobGesture
   | SellHouseGesture;
 
 export function gestureEvents(gesture: Gesture, world?: World): Event[] {
@@ -223,6 +236,46 @@ export function gestureEvents(gesture: Gesture, world?: World): Event[] {
           },
         });
       }
+      return events;
+    }
+
+    case 'start_job': {
+      const ksName = `${gesture.name}-kiwisaver`;
+      const events: Event[] = [
+        { kind: 'create_account', name: `${gesture.name}-tax-spend`,      balance: 0, external: true },
+        { kind: 'create_account', name: `${gesture.name}-acc-levy-spend`,  balance: 0, external: true },
+      ];
+      if (gesture.kiwiSaverEnabled) {
+        events.push({ kind: 'create_investment', name: ksName, initialPrice: 1.0 });
+        events.push({
+          kind: 'register_generator',
+          name: `${ksName}-appreciation`,
+          generator: {
+            kind: 'index_appreciation',
+            name: `${ksName}-appreciation`,
+            investmentName: ksName,
+            annualGrowthPercent: gesture.kiwiSaverGrowthPercent,
+          },
+        });
+      }
+      events.push({
+        kind: 'register_generator',
+        name: `${gesture.name}-salary`,
+        generator: {
+          kind: 'nz_salary',
+          name: `${gesture.name}-salary`,
+          startDay: gesture.day,
+          frequency: gesture.payFrequency,
+          annualSalary: gesture.annualSalary,
+          fromAccount: 'income',
+          cashAccount: 'cash',
+          taxAccount:  `${gesture.name}-tax-spend`,
+          accAccount:  `${gesture.name}-acc-levy-spend`,
+          kiwiSaverInvestmentName: gesture.kiwiSaverEnabled ? ksName : undefined,
+          employeeKiwiSaverPercent: gesture.employeeKiwiSaverPercent,
+          employerKiwiSaverPercent: gesture.employerKiwiSaverPercent,
+        },
+      });
       return events;
     }
 

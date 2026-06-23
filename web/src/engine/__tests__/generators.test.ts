@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { generate } from '../generators';
-import type { RepeatTransferGenerator, InterestPaymentGenerator, MortgageRepaymentGenerator, IndexAppreciationGenerator, PeriodicBuyInvestmentGenerator, InflationGenerator } from '../generators';
+import type { RepeatTransferGenerator, InterestPaymentGenerator, MortgageRepaymentGenerator, IndexAppreciationGenerator, PeriodicBuyInvestmentGenerator, InflationGenerator, NZSalaryGenerator } from '../generators';
 import type { World } from '../world';
 
 const DAY_MS = 86_400_000;
@@ -356,5 +356,73 @@ describe('RepeatTransferGenerator with inflation', () => {
     const world = worldAt(FEB_1_2024, [], [], 2.0);
     const events = generate(staticGen, world);
     expect(events[0]).toEqual({ kind: 'transfer', from: 'cash', to: 'world', amount: 1000 });
+  });
+});
+
+describe('NZSalaryGenerator', () => {
+  const salaryGen: NZSalaryGenerator = {
+    kind: 'nz_salary',
+    name: 'job-salary',
+    startDay: JAN_1_2024,
+    frequency: 'first_of_month',
+    annualSalary: 60000,
+    fromAccount: 'income',
+    cashAccount: 'cash',
+    taxAccount: 'job-tax-spend',
+    accAccount: 'job-acc-levy-spend',
+    employeeKiwiSaverPercent: 3,
+    employerKiwiSaverPercent: 3,
+  };
+
+  const accounts = [
+    { name: 'income', balance: 0 },
+    { name: 'cash', balance: 0 },
+    { name: 'job-tax-spend', balance: 0 },
+    { name: 'job-acc-levy-spend', balance: 0 },
+  ];
+
+  it('does not fire on a non-pay day', () => {
+    const world = worldAt(JAN_2_2024, accounts);
+    expect(generate(salaryGen, world)).toHaveLength(0);
+  });
+
+  it('fires on the first of the month', () => {
+    const world = worldAt(FEB_1_2024, accounts);
+    const events = generate(salaryGen, world);
+    expect(events.length).toBeGreaterThan(0);
+  });
+
+  it('emits correct transfer amounts for $60k annual, monthly, no KiwiSaver', () => {
+    const gen: NZSalaryGenerator = { ...salaryGen, kiwiSaverInvestmentName: undefined, employeeKiwiSaverPercent: 0, employerKiwiSaverPercent: 0 };
+    const world = worldAt(FEB_1_2024, accounts);
+    const events = generate(gen, world);
+    // gross = 60000/12 = 5000
+    // tax on 60000: 14000*0.105 + 34000*0.175 + 12000*0.30 = 1470+5950+3600 = 11020 → /12 = 918.33
+    // ACC on 60000: 60000*0.0175 = 1050 → /12 = 87.50
+    // net = 5000 - 918.33 - 87.50 = 3994.17
+    const cashTransfer = events.find(e => e.kind === 'transfer' && (e as { to: string }).to === 'cash');
+    const taxTransfer  = events.find(e => e.kind === 'transfer' && (e as { to: string }).to === 'job-tax-spend');
+    const accTransfer  = events.find(e => e.kind === 'transfer' && (e as { to: string }).to === 'job-acc-levy-spend');
+    expect(cashTransfer).toMatchObject({ amount: expect.closeTo(3994.17, 0) });
+    expect(taxTransfer).toMatchObject({ amount: expect.closeTo(918.33, 0) });
+    expect(accTransfer).toMatchObject({ amount: expect.closeTo(87.50, 1) });
+    expect(events).toHaveLength(3);
+  });
+
+  it('emits kiwisaver buy events when investment name is set', () => {
+    const gen: NZSalaryGenerator = { ...salaryGen, kiwiSaverInvestmentName: 'job-kiwisaver' };
+    const world = worldAt(FEB_1_2024, [...accounts, { name: 'job-kiwisaver', balance: 0 }],
+      [{ name: 'job-kiwisaver', indexPrice: 1.0, unitsHeld: 0 }]);
+    const events = generate(gen, world);
+    const ksEvents = events.filter(e => e.kind === 'buy_investment_units');
+    expect(ksEvents).toHaveLength(2);
+  });
+
+  it('fires fortnightly every 14 days from start', () => {
+    const gen: NZSalaryGenerator = { ...salaryGen, frequency: 'fortnightly' };
+    const day14 = JAN_1_2024 + 14 * DAY_MS;
+    const day13 = JAN_1_2024 + 13 * DAY_MS;
+    expect(generate(gen, worldAt(day14, accounts))).toHaveLength(3);
+    expect(generate(gen, worldAt(day13, accounts))).toHaveLength(0);
   });
 });

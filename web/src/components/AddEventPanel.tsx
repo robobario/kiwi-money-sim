@@ -3,7 +3,7 @@ import type { Gesture } from '../engine/gestures';
 import type { Frequency } from '../engine/events';
 import { CASH_ACCOUNT, INCOME_ACCOUNT } from '../engine/simulation';
 
-type EventType = 'income' | 'cost' | 'investment' | 'buy_house' | 'mortgage' | 'sell_house';
+type EventType = 'start_job' | 'income' | 'cost' | 'investment' | 'buy_house' | 'mortgage' | 'sell_house';
 
 interface AddEventFormProps {
   onAdd: (gesture: Gesture) => void;
@@ -44,7 +44,7 @@ function FrequencySelect({ value, onChange }: { value: Frequency; onChange: (v: 
 
 export function AddEventForm({ onAdd, onCancel, startDay, availableHouses }: AddEventFormProps) {
   const today = toDateString(startDay);
-  const [eventType, setEventType] = useState<EventType>('income');
+  const [eventType, setEventType] = useState<EventType>('start_job');
   const [name, setName] = useState('');
   const [startDate, setStartDate] = useState(today);
   const [amount, setAmount] = useState(0);
@@ -57,6 +57,13 @@ export function AddEventForm({ onAdd, onCancel, startDay, availableHouses }: Add
   const [termYears, setTermYears] = useState(25);
   const [housePriceGrowth, setHousePriceGrowth] = useState(0);
   const [mortgageName, setMortgageName] = useState('home');
+  const [jobName, setJobName] = useState('job');
+  const [annualSalary, setAnnualSalary] = useState(0);
+  const [payFrequency, setPayFrequency] = useState<'weekly' | 'fortnightly' | 'first_of_month'>('first_of_month');
+  const [kiwiSaverEnabled, setKiwiSaverEnabled] = useState(true);
+  const [employeeKiwiSaverPercent, setEmployeeKiwiSaverPercent] = useState(3);
+  const [employerKiwiSaverPercent, setEmployerKiwiSaverPercent] = useState(3);
+  const [kiwiSaverGrowthPercent, setKiwiSaverGrowthPercent] = useState(5);
   const [deposit, setDeposit] = useState(0);
   const [selectedHouse, setSelectedHouse] = useState('');
   const [useMarketPrice, setUseMarketPrice] = useState(true);
@@ -66,7 +73,13 @@ export function AddEventForm({ onAdd, onCancel, startDay, availableHouses }: Add
 
   const handleAdd = () => {
     const day = truncateToDay(new Date(startDate + 'T00:00:00Z'));
-    if (eventType === 'income') {
+    if (eventType === 'start_job') {
+      if (!jobName || annualSalary <= 0) return;
+      onAdd({
+        kind: 'start_job', day, name: jobName, annualSalary, payFrequency,
+        kiwiSaverEnabled, employeeKiwiSaverPercent, employerKiwiSaverPercent, kiwiSaverGrowthPercent,
+      });
+    } else if (eventType === 'income') {
       if (!name || amount <= 0) return;
       onAdd({ kind: 'create_income', day, name, frequency, amount, toAccount: CASH_ACCOUNT, fromAccount: INCOME_ACCOUNT, inflationLinked });
     } else if (eventType === 'cost') {
@@ -107,6 +120,7 @@ export function AddEventForm({ onAdd, onCancel, startDay, availableHouses }: Add
       <div className="form-row">
         <Field label="Event type">
           <select value={eventType} onChange={e => setEventType(e.target.value as EventType)}>
+            <option value="start_job">Start Job</option>
             <option value="income">Recurring Income</option>
             <option value="cost">Recurring Cost</option>
             <option value="investment">Periodic Investment</option>
@@ -119,6 +133,47 @@ export function AddEventForm({ onAdd, onCancel, startDay, availableHouses }: Add
           <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
         </Field>
       </div>
+
+      {eventType === 'start_job' && (
+        <>
+          <div className="form-row">
+            <Field label="Job name">
+              <input type="text" value={jobName} onChange={e => setJobName(e.target.value)} />
+            </Field>
+            <Field label="Annual salary ($)">
+              <input type="number" min="0" value={annualSalary} onChange={e => setAnnualSalary(Number(e.target.value))} />
+            </Field>
+            <Field label="Pay frequency">
+              <select value={payFrequency} onChange={e => setPayFrequency(e.target.value as typeof payFrequency)}>
+                <option value="first_of_month">Monthly</option>
+                <option value="fortnightly">Fortnightly</option>
+                <option value="weekly">Weekly</option>
+              </select>
+            </Field>
+          </div>
+          <div className="form-row">
+            <Field label=" ">
+              <label className="checkbox-label">
+                <input type="checkbox" checked={kiwiSaverEnabled} onChange={e => setKiwiSaverEnabled(e.target.checked)} />
+                KiwiSaver
+              </label>
+            </Field>
+            {kiwiSaverEnabled && (
+              <>
+                <Field label="Employee (%)">
+                  <input type="number" step="0.5" min="0" max="10" value={employeeKiwiSaverPercent} onChange={e => setEmployeeKiwiSaverPercent(Number(e.target.value))} />
+                </Field>
+                <Field label="Employer (%)">
+                  <input type="number" step="0.5" min="0" value={employerKiwiSaverPercent} onChange={e => setEmployerKiwiSaverPercent(Number(e.target.value))} />
+                </Field>
+                <Field label="Growth (% p.a.)">
+                  <input type="number" step="0.1" min="0" value={kiwiSaverGrowthPercent} onChange={e => setKiwiSaverGrowthPercent(Number(e.target.value))} />
+                </Field>
+              </>
+            )}
+          </div>
+        </>
+      )}
 
       {(eventType === 'income' || eventType === 'cost') && (
         <div className="form-row">

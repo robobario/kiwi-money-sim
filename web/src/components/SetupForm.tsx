@@ -20,6 +20,7 @@ function formatFreq(freq: string): string {
   switch (freq) {
     case 'daily': return '/day';
     case 'weekly': return '/week';
+    case 'fortnightly': return '/fortnight';
     case 'first_of_month': return '/month';
     case 'first_of_year': return '/year';
     default: return freq;
@@ -28,6 +29,11 @@ function formatFreq(freq: string): string {
 
 function gestureLabel(g: Gesture): string {
   switch (g.kind) {
+    case 'start_job': {
+      const freq = ({ first_of_month: 'monthly', fortnightly: 'fortnightly', weekly: 'weekly' } as const)[g.payFrequency];
+      const ks = g.kiwiSaverEnabled ? `, KiwiSaver ${g.employeeKiwiSaverPercent}%+${g.employerKiwiSaverPercent}%` : '';
+      return `${g.name}: $${g.annualSalary.toLocaleString()} gross p.a. (${freq}${ks})`;
+    }
     case 'create_income':
       return `$${g.amount.toLocaleString()}${formatFreq(g.frequency)} ${g.name} (income${g.inflationLinked ? ', inflation-linked' : ''})`;
     case 'create_repeat_cost':
