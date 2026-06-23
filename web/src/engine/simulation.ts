@@ -77,12 +77,12 @@ function triggerGestures(world: World, gestures: Gesture[]): World {
 
 function captureSnapshot(world: World): Snapshot {
   const balances: Record<string, number> = {};
-  for (const account of world.accounts) {
-    balances[account.name] = account.balance;
+  for (const [name, account] of world.accounts) {
+    balances[name] = account.balance;
   }
   const investmentValues: Record<string, number> = {};
-  for (const investment of world.investments) {
-    investmentValues[investment.name] = investment.unitsHeld * investment.indexPrice;
+  for (const [name, investment] of world.investments) {
+    investmentValues[name] = investment.unitsHeld * investment.indexPrice;
   }
   return { day: world.currentDay, balances, investmentValues, inflationIndex: world.inflationIndex };
 }

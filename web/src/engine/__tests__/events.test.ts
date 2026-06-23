@@ -5,10 +5,9 @@ import type { World } from '../world';
 function emptyWorld(): World {
   return {
     currentDay: Date.UTC(2024, 0, 1),
-    accounts: [],
-    eventGenerators: [],
-    eventHistory: [],
-    investments: [],
+    accounts: new Map(),
+    eventGenerators: new Map(),
+    investments: new Map(),
     inflationIndex: 1,
   };
 }
@@ -16,11 +15,11 @@ function emptyWorld(): World {
 function worldWithAccounts(): World {
   return {
     ...emptyWorld(),
-    accounts: [
-      { name: 'checking', balance: 1000 },
-      { name: 'savings', balance: 5000 },
-      { name: 'other', balance: 200 },
-    ],
+    accounts: new Map([
+      ['checking', { name: 'checking', balance: 1000 }],
+      ['savings',  { name: 'savings',  balance: 5000 }],
+      ['other',    { name: 'other',    balance: 200  }],
+    ]),
   };
 }
 
@@ -29,26 +28,26 @@ describe('applyEvent', () => {
     it('deducts from source and adds to target', () => {
       const world = worldWithAccounts();
       const result = applyEvent(world, { kind: 'transfer', from: 'checking', to: 'savings', amount: 300 });
-      expect(result.accounts.find(a => a.name === 'checking')!.balance).toBe(700);
-      expect(result.accounts.find(a => a.name === 'savings')!.balance).toBe(5300);
+      expect(result.accounts.get('checking')!.balance).toBe(700);
+      expect(result.accounts.get('savings')!.balance).toBe(5300);
     });
 
     it('preserves other accounts', () => {
       const world = worldWithAccounts();
       const result = applyEvent(world, { kind: 'transfer', from: 'checking', to: 'savings', amount: 100 });
-      expect(result.accounts.find(a => a.name === 'other')!.balance).toBe(200);
+      expect(result.accounts.get('other')!.balance).toBe(200);
     });
 
     it('allows negative balances', () => {
       const world = worldWithAccounts();
       const result = applyEvent(world, { kind: 'transfer', from: 'checking', to: 'savings', amount: 2000 });
-      expect(result.accounts.find(a => a.name === 'checking')!.balance).toBe(-1000);
+      expect(result.accounts.get('checking')!.balance).toBe(-1000);
     });
 
     it('does not mutate the original world', () => {
       const world = worldWithAccounts();
       applyEvent(world, { kind: 'transfer', from: 'checking', to: 'savings', amount: 100 });
-      expect(world.accounts.find(a => a.name === 'checking')!.balance).toBe(1000);
+      expect(world.accounts.get('checking')!.balance).toBe(1000);
     });
   });
 
@@ -56,8 +55,8 @@ describe('applyEvent', () => {
     it('adds a new account', () => {
       const world = emptyWorld();
       const result = applyEvent(world, { kind: 'create_account', name: 'cash', balance: 500 });
-      expect(result.accounts).toHaveLength(1);
-      expect(result.accounts[0]).toEqual({ name: 'cash', balance: 500, external: false });
+      expect(result.accounts.size).toBe(1);
+      expect(result.accounts.get('cash')).toEqual({ name: 'cash', balance: 500, external: false });
     });
 
     it('throws on duplicate account name', () => {
@@ -81,8 +80,8 @@ describe('applyEvent', () => {
         frequency: 'first_of_month' as const,
       };
       const result = applyEvent(world, { kind: 'register_generator', name: 'salary', generator: gen });
-      expect(result.eventGenerators).toHaveLength(1);
-      expect(result.eventGenerators[0].name).toBe('salary');
+      expect(result.eventGenerators.size).toBe(1);
+      expect(result.eventGenerators.has('salary')).toBe(true);
     });
 
     it('replaces existing generator with same name (upsert)', () => {
@@ -96,11 +95,12 @@ describe('applyEvent', () => {
         frequency: 'first_of_month' as const,
       };
       const replacement = { ...original, amount: 6000 };
-      const world: World = { ...emptyWorld(), eventGenerators: [original] };
+      const world: World = { ...emptyWorld(), eventGenerators: new Map([['salary', original]]) };
       const result = applyEvent(world, { kind: 'register_generator', name: 'salary', generator: replacement });
-      expect(result.eventGenerators).toHaveLength(1);
-      if (result.eventGenerators[0].kind === 'repeat_transfer') {
-        expect(result.eventGenerators[0].amount).toBe(6000);
+      expect(result.eventGenerators.size).toBe(1);
+      const gen = result.eventGenerators.get('salary');
+      if (gen?.kind === 'repeat_transfer') {
+        expect(gen.amount).toBe(6000);
       }
     });
   });
@@ -109,48 +109,48 @@ describe('applyEvent', () => {
     it('sets unitsHeld to 0', () => {
       const world: World = {
         ...emptyWorld(),
-        investments: [
-          { name: 'home-house', indexPrice: 1.05, unitsHeld: 700000 },
-          { name: 'other', indexPrice: 1.0, unitsHeld: 100 },
-        ],
+        investments: new Map([
+          ['home-house', { name: 'home-house', indexPrice: 1.05, unitsHeld: 700000 }],
+          ['other',      { name: 'other',      indexPrice: 1.0,  unitsHeld: 100    }],
+        ]),
       };
       const result = applyEvent(world, { kind: 'clear_investment', name: 'home-house' });
-      expect(result.investments.find(i => i.name === 'home-house')?.unitsHeld).toBe(0);
-      expect(result.investments.find(i => i.name === 'other')?.unitsHeld).toBe(100);
+      expect(result.investments.get('home-house')?.unitsHeld).toBe(0);
+      expect(result.investments.get('other')?.unitsHeld).toBe(100);
     });
   });
 
   describe('sell_investment_units', () => {
     const world: World = {
       ...emptyWorld(),
-      investments: [
-        { name: 'fund', indexPrice: 2.0, unitsHeld: 100 },
-        { name: 'other', indexPrice: 1.0, unitsHeld: 200 },
-      ],
-      accounts: [{ name: 'cash', balance: 0, external: false }],
+      investments: new Map([
+        ['fund',  { name: 'fund',  indexPrice: 2.0, unitsHeld: 100 }],
+        ['other', { name: 'other', indexPrice: 1.0, unitsHeld: 200 }],
+      ]),
+      accounts: new Map([['cash', { name: 'cash', balance: 0, external: false }]]),
     };
 
     it('removes the correct number of units and credits cash', () => {
       // $50 at price 2.0 = 25 units removed
       const result = applyEvent(world, { kind: 'sell_investment_units', investmentName: 'fund', cashAmount: 50, toAccount: 'cash' });
-      expect(result.investments.find(i => i.name === 'fund')?.unitsHeld).toBeCloseTo(75, 5);
-      expect(result.accounts.find(a => a.name === 'cash')?.balance).toBe(50);
+      expect(result.investments.get('fund')?.unitsHeld).toBeCloseTo(75, 5);
+      expect(result.accounts.get('cash')?.balance).toBe(50);
     });
 
     it('does not reduce units below zero', () => {
       const tinyWorld: World = {
         ...emptyWorld(),
-        investments: [{ name: 'fund', indexPrice: 2.0, unitsHeld: 10 }],
-        accounts: [{ name: 'cash', balance: 0, external: false }],
+        investments: new Map([['fund', { name: 'fund', indexPrice: 2.0, unitsHeld: 10 }]]),
+        accounts: new Map([['cash', { name: 'cash', balance: 0, external: false }]]),
       };
       // $100 would require 50 units but only 10 exist
       const result = applyEvent(tinyWorld, { kind: 'sell_investment_units', investmentName: 'fund', cashAmount: 100, toAccount: 'cash' });
-      expect(result.investments.find(i => i.name === 'fund')?.unitsHeld).toBe(0);
+      expect(result.investments.get('fund')?.unitsHeld).toBe(0);
     });
 
     it('does not affect other investments', () => {
       const result = applyEvent(world, { kind: 'sell_investment_units', investmentName: 'fund', cashAmount: 50, toAccount: 'cash' });
-      expect(result.investments.find(i => i.name === 'other')?.unitsHeld).toBe(200);
+      expect(result.investments.get('other')?.unitsHeld).toBe(200);
     });
   });
 });

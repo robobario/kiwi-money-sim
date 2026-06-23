@@ -15,10 +15,9 @@ const FEB_1_2024 = Date.UTC(2024, 1, 1);
 function worldAt(day: number, accounts: { name: string; balance: number }[] = [], investments: { name: string; indexPrice: number; unitsHeld: number }[] = [], inflationIndex = 1): World {
   return {
     currentDay: day,
-    accounts,
-    eventGenerators: [],
-    eventHistory: [],
-    investments,
+    accounts: new Map(accounts.map(a => [a.name, { ...a, external: false }])),
+    eventGenerators: new Map(),
+    investments: new Map(investments.map(i => [i.name, i])),
     inflationIndex,
   };
 }

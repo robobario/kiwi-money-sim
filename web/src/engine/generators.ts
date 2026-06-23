@@ -109,7 +109,7 @@ export function generate(gen: EventGenerator, world: World): Event[] {
     }
     case 'interest_payment': {
       if (!shouldFire(gen.frequency, world.currentDay, gen.startDay)) return [];
-      const account = world.accounts.find(a => a.name === gen.mortgageAccount)!;
+      const account = world.accounts.get(gen.mortgageAccount)!;
       if (account.balance >= 0) return [];
       const paymentsPerYear = paymentsPerYearFor(gen.frequency);
       const periodicRate = gen.annualRatePercent / 100 / paymentsPerYear;
@@ -118,13 +118,13 @@ export function generate(gen: EventGenerator, world: World): Event[] {
     }
     case 'mortgage_repayment': {
       if (!shouldFire(gen.frequency, world.currentDay, gen.startDay)) return [];
-      const account = world.accounts.find(a => a.name === gen.mortgageAccount)!;
+      const account = world.accounts.get(gen.mortgageAccount)!;
       if (account.balance >= 0) return [];
       const payment = roundCents(Math.min(gen.amount, -account.balance));
       return [{ kind: 'transfer', from: gen.paymentFromAccount, to: gen.mortgageAccount, amount: payment }];
     }
     case 'index_appreciation': {
-      const investment = world.investments.find(i => i.name === gen.investmentName)!;
+      const investment = world.investments.get(gen.investmentName)!;
       const dailyMultiplier = Math.pow(1 + gen.annualGrowthPercent / 100, 1 / 365);
       const newPrice = investment.indexPrice * dailyMultiplier;
       return [{ kind: 'update_index_price', investmentName: gen.investmentName, newPrice }];
@@ -166,7 +166,7 @@ export function generate(gen: EventGenerator, world: World): Event[] {
     }
     case 'drawdown': {
       if (!shouldFire('first_of_month', world.currentDay, gen.startDay)) return [];
-      const investment = world.investments.find(i => i.name === gen.investmentName);
+      const investment = world.investments.get(gen.investmentName);
       if (!investment || investment.unitsHeld <= 0) return [];
       let monthlyAmount: number;
       if (gen.mode === 'percent') {

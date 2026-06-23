@@ -125,10 +125,9 @@ describe('inflation-linked gestures', () => {
   it('create_repeat_cost with inflationLinked captures baseInflationIndex from world', () => {
     const world = {
       currentDay: JAN_1_2024,
-      accounts: [],
-      eventGenerators: [],
-      eventHistory: [],
-      investments: [],
+      accounts: new Map(),
+      eventGenerators: new Map(),
+      investments: new Map(),
       inflationIndex: 1.5,
     };
     const events = gestureEvents({
@@ -207,15 +206,14 @@ describe('buy_house gesture', () => {
 describe('sell_house gesture', () => {
   const world = {
     currentDay: JAN_1_2024,
-    accounts: [
-      { name: 'cash', balance: 10000 },
-      { name: 'home-mortgage', balance: -150000 },
-    ],
-    eventGenerators: [],
-    eventHistory: [],
-    investments: [
-      { name: 'home-house', indexPrice: 1.05, unitsHeld: 700000 },
-    ],
+    accounts: new Map([
+      ['cash',         { name: 'cash',         balance:   10000 }],
+      ['home-mortgage',{ name: 'home-mortgage', balance: -150000 }],
+    ]),
+    eventGenerators: new Map(),
+    investments: new Map([
+      ['home-house', { name: 'home-house', indexPrice: 1.05, unitsHeld: 700000 }],
+    ]),
     inflationIndex: 1,
   };
 
@@ -278,10 +276,10 @@ describe('sell_house gesture', () => {
   it('funds shortfall from cash when sale is underwater', () => {
     const worldWithBigMortgage = {
       ...world,
-      accounts: [
-        { name: 'cash', balance: 50000 },
-        { name: 'home-mortgage', balance: -600000 },
-      ],
+      accounts: new Map([
+        ['cash',          { name: 'cash',          balance:   50000 }],
+        ['home-mortgage', { name: 'home-mortgage',  balance: -600000 }],
+      ]),
     };
     const events = gestureEvents({
       kind: 'sell_house',
@@ -337,10 +335,9 @@ describe('start_drawdown gesture', () => {
   it('passes fixed amount and inflation-linking through to the generator', () => {
     const world = {
       currentDay: JAN_1_2024,
-      accounts: [],
-      eventGenerators: [],
-      eventHistory: [],
-      investments: [],
+      accounts: new Map(),
+      eventGenerators: new Map(),
+      investments: new Map(),
       inflationIndex: 1.3,
     };
     const events = gestureEvents({
@@ -471,10 +468,9 @@ describe('change_recurring_buy gesture', () => {
 
   const world = {
     currentDay: JAN_1_2024,
-    accounts: [],
-    eventGenerators: [existingGenerator],
-    eventHistory: [],
-    investments: [],
+    accounts: new Map(),
+    eventGenerators: new Map([['index-fund-buy', existingGenerator]]),
+    investments: new Map(),
     inflationIndex: 1,
   };
 

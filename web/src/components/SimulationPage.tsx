@@ -14,14 +14,14 @@ function formatDollar(value: number): string {
 export function SimulationPage({ result, mortgageNames }: SimulationPageProps) {
   const finalBalances = result.finalWorld.accounts;
   const finalInvestments = result.finalWorld.investments;
-  const externalAccountNames = finalBalances.filter(a => a.external).map(a => a.name);
-  const cashBalance = finalBalances.find(a => a.name === 'cash')?.balance ?? 0;
+  const externalAccountNames = [...finalBalances.values()].filter(a => a.external).map(a => a.name);
+  const cashBalance = finalBalances.get('cash')?.balance ?? 0;
   const houseInvestmentKeys = new Set(mortgageNames.map(n => `${n}-house`));
-  const investmentTotal = finalInvestments.reduce((sum, i) => sum + i.unitsHeld * i.indexPrice, 0);
-  const netWorth = finalBalances
+  const investmentTotal = [...finalInvestments.values()].reduce((sum, i) => sum + i.unitsHeld * i.indexPrice, 0);
+  const netWorth = [...finalBalances.values()]
     .filter(a => !a.external)
     .reduce((sum, a) => sum + a.balance, 0) + investmentTotal;
-  const displayInvestments = finalInvestments.filter(i => !houseInvestmentKeys.has(i.name));
+  const displayInvestments = [...finalInvestments.values()].filter(i => !houseInvestmentKeys.has(i.name));
 
   const firstNegativeCash = result.snapshots.find(s => (s.balances['cash'] ?? 0) < 0);
 
@@ -37,9 +37,9 @@ export function SimulationPage({ result, mortgageNames }: SimulationPageProps) {
           <span className="stat-value">{formatDollar(netWorth)}</span>
         </div>
         {mortgageNames.map(name => {
-          const inv = finalInvestments.find(i => i.name === `${name}-house`);
+          const inv = finalInvestments.get(`${name}-house`);
           const houseValue = inv ? inv.unitsHeld * inv.indexPrice : 0;
-          const mortgageBalance = finalBalances.find(a => a.name === `${name}-mortgage`)?.balance ?? 0;
+          const mortgageBalance = finalBalances.get(`${name}-mortgage`)?.balance ?? 0;
           return (
             <React.Fragment key={name}>
               <div className="stat">

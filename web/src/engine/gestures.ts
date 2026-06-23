@@ -370,7 +370,7 @@ export function gestureEvents(gesture: Gesture, world?: World): Event[] {
       if (gesture.newPeriodAmount === 0) {
         return [{ kind: 'deregister_generator', name: generatorName }];
       }
-      const existing = world?.eventGenerators.find(g => g.name === generatorName);
+      const existing = world?.eventGenerators.get(generatorName);
       if (existing && existing.kind === 'periodic_buy_investment') {
         return [{ kind: 'register_generator', name: generatorName, generator: { ...existing, cashAmount: gesture.newPeriodAmount } }];
       }
@@ -396,23 +396,23 @@ export function gestureEvents(gesture: Gesture, world?: World): Event[] {
 
     case 'retire': {
       const pattern = new RegExp(`^${gesture.personName}-.+-salary$`);
-      return (world?.eventGenerators ?? [])
-        .filter(g => pattern.test(g.name))
-        .map(g => ({ kind: 'deregister_generator' as const, name: g.name }));
+      return [...(world?.eventGenerators.keys() ?? [])]
+        .filter(name => pattern.test(name))
+        .map(name => ({ kind: 'deregister_generator' as const, name }));
     }
 
     case 'sell_house': {
       const houseInvestmentName = `${gesture.houseName}-house`;
       const mortgageAccountName = `${gesture.houseName}-mortgage`;
 
-      const houseInvestment = world?.investments.find(i => i.name === houseInvestmentName);
+      const houseInvestment = world?.investments.get(houseInvestmentName);
       const marketPrice = houseInvestment ? houseInvestment.unitsHeld * houseInvestment.indexPrice : 0;
       const salePrice = gesture.salePriceOverride ?? marketPrice;
 
       const agentFee = roundCents(salePrice * gesture.agentFeePercent / 100);
       const netProceeds = salePrice - agentFee - gesture.fixedCosts;
 
-      const mortgageBalance = world?.accounts.find(a => a.name === mortgageAccountName)?.balance ?? 0;
+      const mortgageBalance = world?.accounts.get(mortgageAccountName)?.balance ?? 0;
       const mortgagePayoff = mortgageBalance < 0 ? -mortgageBalance : 0;
       const proceedsToMortgage = Math.min(netProceeds, mortgagePayoff);
       const cashToMortgage = Math.max(0, mortgagePayoff - netProceeds);

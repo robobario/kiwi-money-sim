@@ -12,10 +12,9 @@ export interface Investment {
 
 export interface World {
   readonly currentDay: number;
-  readonly accounts: readonly Account[];
-  readonly eventGenerators: readonly EventGenerator[];
-  readonly eventHistory: readonly Event[];
-  readonly investments: readonly Investment[];
+  readonly accounts: ReadonlyMap<string, Account>;
+  readonly eventGenerators: ReadonlyMap<string, EventGenerator>;
+  readonly investments: ReadonlyMap<string, Investment>;
   readonly inflationIndex: number;
 }
 
@@ -24,10 +23,9 @@ const DAY_MS = 86_400_000;
 export function createWorld(startDay: Date): World {
   return {
     currentDay: truncateToDay(startDay).getTime(),
-    accounts: [],
-    eventGenerators: [],
-    eventHistory: [],
-    investments: [],
+    accounts: new Map(),
+    eventGenerators: new Map(),
+    investments: new Map(),
     inflationIndex: 1,
   };
 }
@@ -43,11 +41,11 @@ export function applyEvents(world: World, events: Event[]): World {
   for (const event of events) {
     current = applyEvent(current, event);
   }
-  return { ...current, eventHistory: [...current.eventHistory, ...events] };
+  return current;
 }
 
 function generateEvents(world: World): Event[] {
-  return world.eventGenerators.flatMap(gen => generate(gen, world));
+  return [...world.eventGenerators.values()].flatMap(gen => generate(gen, world));
 }
 
 function truncateToDay(date: Date): Date {

@@ -42,7 +42,7 @@ describe('runSimulation', () => {
       },
     ];
     const result = await runSimulation(JAN_1_2024, gestures, 1);
-    const cash = result.finalWorld.accounts.find(a => a.name === CASH_ACCOUNT)!.balance;
+    const cash = result.finalWorld.accounts.get(CASH_ACCOUNT)!.balance;
     // 12 months of $5000 (Jan 1 is the start day, gestures fire on it,
     // but the generator fires on subsequent 1sts, so ~11-12 payments depending on end date)
     expect(cash).toBeGreaterThanOrEqual(55000);
@@ -63,7 +63,7 @@ describe('runSimulation', () => {
       },
     ];
     const result = await runSimulation(JAN_1_2024, gestures, 1);
-    const cash = result.finalWorld.accounts.find(a => a.name === CASH_ACCOUNT)!.balance;
+    const cash = result.finalWorld.accounts.get(CASH_ACCOUNT)!.balance;
     // Net monthly: 5000 - 2000 = 3000, ~12 months
     expect(cash).toBeGreaterThanOrEqual(33000);
     expect(cash).toBeLessThanOrEqual(36000);
@@ -83,7 +83,7 @@ describe('runSimulation', () => {
     const sixMonths = new Date(Date.UTC(2024, 6, 1));
     const durationYears = (sixMonths.getTime() - JAN_1_2024.getTime()) / (365.25 * 86_400_000);
     const result = await runSimulation(JAN_1_2024, gestures, Math.ceil(durationYears));
-    const cash = result.finalWorld.accounts.find(a => a.name === CASH_ACCOUNT)!.balance;
+    const cash = result.finalWorld.accounts.get(CASH_ACCOUNT)!.balance;
     // The future salary generator is registered on Jul 1. From Jul 1 to Jan 1 2025
     // is 6 first-of-months (Aug, Sep, Oct, Nov, Dec, Jan), so cash should be ~60000
     // But it should NOT have fired in Jan-Jun
@@ -120,9 +120,9 @@ describe('runSimulation', () => {
       const result = await runSimulation(JAN_1_2024, gestures, 1);
       const accounts = result.finalWorld.accounts;
 
-      const cash = accounts.find(a => a.name === CASH_ACCOUNT)!.balance;
-      const mortgage = accounts.find(a => a.name === 'mortgage-mortgage')!.balance;
-      const houseInv = result.finalWorld.investments.find(i => i.name === 'mortgage-house')!;
+      const cash = accounts.get(CASH_ACCOUNT)!.balance;
+      const mortgage = accounts.get('mortgage-mortgage')!.balance;
+      const houseInv = result.finalWorld.investments.get('mortgage-house')!;
 
       // House value is static (no appreciation configured)
       expect(houseInv.unitsHeld * houseInv.indexPrice).toBeCloseTo(700000, 0);
@@ -152,7 +152,7 @@ describe('runSimulation', () => {
       // Run one extra year: rounding on each payment can leave a small residual that
       // clears in 1-2 extra months, after which both generators stop firing permanently.
       const result = await runSimulation(JAN_1_2024, gestures, termYears + 1);
-      const mortgage = result.finalWorld.accounts.find(a => a.name === 'home-mortgage')!.balance;
+      const mortgage = result.finalWorld.accounts.get('home-mortgage')!.balance;
       expect(mortgage).toBeCloseTo(0, 2);
     });
 
@@ -201,8 +201,8 @@ describe('runSimulation', () => {
       ];
 
       const result = await runSimulation(JAN_1_2024, gestures, 10);
-      const linked = result.finalWorld.accounts.find(a => a.name === 'linked-cost-spend')!.balance;
-      const staticAcc = result.finalWorld.accounts.find(a => a.name === 'static-cost-spend')!.balance;
+      const linked = result.finalWorld.accounts.get('linked-cost-spend')!.balance;
+      const staticAcc = result.finalWorld.accounts.get('static-cost-spend')!.balance;
 
       // Inflation-linked cumulative spend must exceed static spend over 10 years at 3% inflation
       expect(linked).toBeGreaterThan(staticAcc);
@@ -230,7 +230,7 @@ describe('runSimulation', () => {
 
       // With salary linked and costs static, cash should be positive after 10 years
       const result = await runSimulation(JAN_1_2024, gestures, 10);
-      const cash = result.finalWorld.accounts.find(a => a.name === CASH_ACCOUNT)!.balance;
+      const cash = result.finalWorld.accounts.get(CASH_ACCOUNT)!.balance;
       expect(cash).toBeGreaterThan(0);
     });
   });
@@ -250,7 +250,7 @@ describe('runSimulation', () => {
       ];
 
       const result = await runSimulation(JAN_1_2024, gestures, 10);
-      const house = result.finalWorld.investments.find(i => i.name === 'home-house')!;
+      const house = result.finalWorld.investments.get('home-house')!;
       // After 10 years at 3%: 700000 × 1.03^10 ≈ 940,462
       expect(house.unitsHeld * house.indexPrice).toBeGreaterThan(900_000);
       expect(house.unitsHeld * house.indexPrice).toBeLessThan(1_000_000);
@@ -269,7 +269,7 @@ describe('runSimulation', () => {
       ];
 
       const result = await runSimulation(JAN_1_2024, gestures, 10);
-      const house = result.finalWorld.investments.find(i => i.name === 'home-house')!;
+      const house = result.finalWorld.investments.get('home-house')!;
       expect(house.unitsHeld * house.indexPrice).toBeCloseTo(700000, 0);
     });
   });
@@ -288,7 +288,7 @@ describe('runSimulation', () => {
       ];
 
       const result = await runSimulation(JAN_1_2024, gestures, 10);
-      const fund = result.finalWorld.investments.find(i => i.name === 'fund')!;
+      const fund = result.finalWorld.investments.get('fund')!;
 
       expect(fund).toBeDefined();
       expect(fund.unitsHeld).toBeGreaterThan(0);
@@ -326,7 +326,7 @@ describe('runSimulation', () => {
       ];
 
       const result = await runSimulation(JAN_1_2024, gestures, 1);
-      const fund = result.finalWorld.investments.find(i => i.name === 'fund')!;
+      const fund = result.finalWorld.investments.get('fund')!;
       // After 1 year at 5% annual growth, index should be close to 1.05
       expect(fund.indexPrice).toBeCloseTo(1.05, 2);
     });
